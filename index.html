@@ -136,10 +136,10 @@
             content: '';
             position: absolute;
             inset: 0;
-            border: 2px dashed rgba(59, 130, 246, 0.8);
             border-radius: inherit;
             pointer-events: none;
             z-index: 15;
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, transparent 100%);
         }
         .layer-water .dt-plot::after {
             content: '';
@@ -374,6 +374,179 @@
                 ]
             }
         ];
+
+        // --- COMPONENT POPUP CHI TIẾT TỪNG NHÀ MÁY ---
+        const TenantDetailModal = ({ tenant, onClose }) => {
+            if (!tenant) return null;
+            
+            // Mock data chuyên sâu theo yêu cầu
+            const detail = {
+                energy: { kwh: tenant.type==='Utility'?'125,000':'45,200', peak: '1.5 MW (14:00)', renew: '15%', ghg: '125' },
+                water: { input: tenant.water || '1,200', ph: '7.2', cod: '45', bod: '20', tss: '15', amoni: '1.5' },
+                waste: { domestic: '4.5', industrial: '12', hazardous: '0.8', note: 'Đơn vị xử lý: URENCO' },
+                ops: { sla: '99.9%', log_count: '42', log_time: '1h 15m', maint: 'Trạm biến áp nội bộ Tốt' },
+                social: { total: tenant.workers || 350, local: '85%', expat: '15%', turnover: '1.2%', lti: '25,000', near_miss: '0', pccc: 'Kết nối TT BQL Sẵn sàng' },
+                gov: { certs: ['ISO 9001', 'ISO 14001', 'ISO 45001'], finance: 'Đã hoàn tất thanh toán', audit: '94/100' },
+                rank: { score: '88/100', pos: '#5 / 30' }
+            };
+
+            if (tenant.status === 'warning') {
+                detail.energy.kwh = '58,000'; detail.water.cod = '110'; detail.social.near_miss = '3'; detail.rank.pos = '#22 / 30'; detail.gov.audit = '75/100'; detail.rank.score = '65/100';
+            } else if (tenant.status === 'critical') {
+                detail.ops.sla = '95.5%'; detail.social.pccc = 'Lỗi mất tín hiệu Zone B'; detail.water.ph = '5.0'; detail.gov.finance = 'Nợ phí dịch vụ 1 tháng'; detail.ops.maint = 'Sự cố Hố ga thoát nước';
+            }
+
+            return (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-slate-900/60 backdrop-blur-sm animate-fade-in" onClick={onClose}>
+                    <div className="bg-white w-full max-w-6xl h-[95vh] rounded-[2rem] shadow-2xl flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+                        {/* Header */}
+                        <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-slate-50 shrink-0">
+                            <div>
+                                <div className="flex items-center gap-3">
+                                    <h2 className="text-2xl font-extrabold text-slate-900">{tenant.name}</h2>
+                                    <StatusBadge status={tenant.status === 'normal' ? 'active' : tenant.status === 'warning' ? 'warning' : tenant.status === 'critical' ? 'error' : 'neutral'} text={tenant.status === 'normal' ? 'Hoạt động tốt' : tenant.status === 'warning' ? 'Cảnh báo' : tenant.status === 'critical' ? 'Sự cố' : 'Đang XD/Trống'} />
+                                </div>
+                                <p className="text-sm font-semibold text-slate-500 mt-1">Dashboard Chuyên sâu ESG & Vận hành - {tenant.type==='Utility'?'Hạ Tầng Trung Tâm':`Lô ${tenant.id}`}</p>
+                            </div>
+                            <button onClick={onClose} className="p-2 bg-white border border-slate-200 hover:bg-slate-100 rounded-full transition-colors"><Icon name="x" size={24} className="text-slate-500" /></button>
+                        </div>
+                        
+                        {/* Scrollable Content */}
+                        <div className="flex-1 overflow-y-auto p-6 bg-slate-50/50">
+                            {tenant.alertMsg && (
+                                <div className="mb-6"><AlertBox type={tenant.status === 'warning' ? 'warning' : 'error'} title="Phát hiện sự cố cần lưu ý" desc={tenant.alertMsg} actionText="Xử lý ngay" /></div>
+                            )}
+
+                            {/* A. Phân hệ Quản trị Môi trường */}
+                            <div className="mb-8">
+                                <h3 className="text-lg font-extrabold text-slate-800 mb-4 flex items-center gap-2"><div className="p-1.5 bg-brand-lightgreen rounded-lg"><Icon name="leaf" size={18} className="text-brand-green"/></div> A. Phân hệ Quản trị Môi trường (The "E" in ESG)</h3>
+                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                                    <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                                        <h4 className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider mb-3">Tiêu thụ Năng lượng</h4>
+                                        <MetricRow label="Tổng điện năng (Tháng)" value={detail.energy.kwh} subValue="kWh" highlight />
+                                        <MetricRow label="Biểu đồ Phụ tải đỉnh (Peak)" value={detail.energy.peak} />
+                                        <MetricRow label="Tỷ lệ NL Tái tạo (Solar Roof)" value={detail.energy.renew} />
+                                        <MetricRow label="Phát thải KNK (Scope 1, 2)" value={detail.energy.ghg} subValue="tCO2e" />
+                                    </div>
+                                    <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
+                                        <h4 className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider mb-3">Quản lý Nguồn nước</h4>
+                                        <MetricRow label="Nước sạch đầu vào" value={detail.water.input} subValue="m³" highlight />
+                                        <div className="mt-auto pt-3 border-t border-slate-100">
+                                            <p className="text-[10px] font-extrabold text-brand-blue uppercase tracking-wider mb-2 text-center bg-brand-lightblue/50 py-1 rounded">Chất lượng Nước thải đầu ra (Real-time)</p>
+                                            <div className="grid grid-cols-3 gap-2 text-center text-xs font-bold">
+                                                <div className="bg-slate-50 p-2 rounded-xl border border-slate-100">pH<br/><span className={`text-base ${tenant.status==='critical'?'text-red-500':'text-brand-green'}`}>{detail.water.ph}</span></div>
+                                                <div className="bg-slate-50 p-2 rounded-xl border border-slate-100">COD<br/><span className={`text-base ${tenant.status==='warning'?'text-brand-orange':'text-brand-green'}`}>{detail.water.cod}</span></div>
+                                                <div className="bg-slate-50 p-2 rounded-xl border border-slate-100">BOD<br/><span className="text-base text-brand-green">{detail.water.bod}</span></div>
+                                                <div className="bg-slate-50 p-2 rounded-xl border border-slate-100">TSS<br/><span className="text-base text-brand-green">{detail.water.tss}</span></div>
+                                                <div className="bg-slate-50 p-2 rounded-xl border border-slate-100 col-span-2">Amoni<br/><span className="text-base text-brand-green">{detail.water.amoni}</span></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
+                                        <h4 className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider mb-3">Quản lý Rác thải (Tháng này)</h4>
+                                        <MetricRow label="Rác sinh hoạt" value={detail.waste.domestic} subValue="Tấn" />
+                                        <MetricRow label="Rác công nghiệp" value={detail.waste.industrial} subValue="Tấn" />
+                                        <MetricRow label="Rác nguy hại" value={detail.waste.hazardous} subValue="Tấn" highlight />
+                                        <div className="mt-auto bg-slate-50 border border-slate-100 p-3 rounded-xl text-xs font-medium text-slate-600 flex items-start gap-2">
+                                            <Icon name="file-check-2" size={16} className="text-brand-blue shrink-0 mt-0.5" />
+                                            Nhật ký xử lý: {detail.waste.note} (100% tuân thủ quy trình xử lý của đối tác KCN).
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* B. Phân hệ Vận hành & Hạ tầng */}
+                            <div className="mb-8">
+                                <h3 className="text-lg font-extrabold text-slate-800 mb-4 flex items-center gap-2"><div className="p-1.5 bg-brand-lightblue rounded-lg"><Icon name="settings" size={18} className="text-brand-blue"/></div> B. Phân hệ Vận hành & Hạ tầng (Operations)</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                                    <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-center items-center text-center">
+                                        <h4 className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">SLA Hạ tầng cung cấp</h4>
+                                        <p className="text-[10px] text-slate-400 mb-3">(Điện, Nước, Internet độ ổn định)</p>
+                                        <div className={`text-4xl font-extrabold ${tenant.status==='critical'?'text-red-500':'text-brand-blue'}`}>{detail.ops.sla}</div>
+                                    </div>
+                                    <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                                        <h4 className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider mb-3">Logistics & Giao thông</h4>
+                                        <MetricRow icon="truck" label="Lưu lượng Cont/Tải ra vào" value={detail.ops.log_count} subValue="Lượt/Ngày" />
+                                        <MetricRow icon="clock" label="Thời gian lưu bãi trung bình" value={detail.ops.log_time} highlight />
+                                    </div>
+                                    <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                                        <h4 className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider mb-3">Bảo trì hệ thống (Sensor IoT)</h4>
+                                        <MetricRow icon="radio" label="Trạng thái các điểm kết nối" value="Hoạt động" />
+                                        <div className={`mt-3 p-2.5 rounded-xl text-xs font-bold ${tenant.status==='critical'?'bg-red-50 text-red-600 border border-red-100':'bg-brand-lightgreen text-brand-green border border-brand-green/20'}`}>
+                                            Chi tiết: {detail.ops.maint}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* C & D & E Grid */}
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                {/* Left Col: Social */}
+                                <div>
+                                    <h3 className="text-lg font-extrabold text-slate-800 mb-4 flex items-center gap-2"><div className="p-1.5 bg-pink-100 rounded-lg"><Icon name="users" size={18} className="text-pink-500"/></div> C. Nhân sự & Xã hội (Social)</h3>
+                                    <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-5">
+                                        <div>
+                                            <h4 className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider mb-3">Nhân lực & Biến động</h4>
+                                            <div className="flex justify-between items-center mb-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                                                <span className="text-sm font-semibold text-slate-600 flex items-center gap-2"><Icon name="user-check" size={16} className="text-brand-blue" /> Tổng LĐ có mặt (Check-in)</span>
+                                                <span className="text-xl font-extrabold text-slate-900">{detail.social.total}</span>
+                                            </div>
+                                            <div className="flex gap-2 text-xs font-bold mb-3">
+                                                <div className="flex-1 bg-white border border-slate-200 p-2.5 rounded-xl text-center flex flex-col"><span className="text-[10px] text-slate-400 mb-0.5">Lao động địa phương</span><span className="text-brand-blue text-sm">{detail.social.local}</span></div>
+                                                <div className="flex-1 bg-white border border-slate-200 p-2.5 rounded-xl text-center flex flex-col"><span className="text-[10px] text-slate-400 mb-0.5">LĐ Nước ngoài (Expat)</span><span className="text-brand-orange text-sm">{detail.social.expat}</span></div>
+                                            </div>
+                                            <MetricRow label="Tỷ lệ biến động (Turnover rate) / Tháng" value={detail.social.turnover} />
+                                        </div>
+                                        <div className="pt-4 border-t border-slate-100">
+                                            <h4 className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider mb-3">An toàn lao động (EHS)</h4>
+                                            <MetricRow label="Giờ làm việc an toàn (LTI)" value={detail.social.lti} subValue="Giờ" highlight />
+                                            <MetricRow label="Sự cố suýt xảy ra (Near-miss)" value={detail.social.near_miss} subValue="Vụ báo cáo" />
+                                            <div className="flex justify-between items-center py-2.5">
+                                                <span className="text-sm font-medium text-slate-600">Hệ thống & Diễn tập PCCC</span>
+                                                <span className={`text-[10px] font-extrabold px-2 py-1 rounded border ${tenant.status==='critical'?'bg-red-50 text-red-600 border-red-200':'bg-brand-lightgreen text-brand-green border-brand-green/20'}`}>{detail.social.pccc}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Right Col: Gov & Benchmarking */}
+                                <div>
+                                    <div className="mb-8">
+                                        <h3 className="text-lg font-extrabold text-slate-800 mb-4 flex items-center gap-2"><div className="p-1.5 bg-indigo-100 rounded-lg"><Icon name="shield-check" size={18} className="text-indigo-500"/></div> D. Tuân thủ & Pháp lý (Governance)</h3>
+                                        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                                            <div>
+                                                <h4 className="text-[10px] font-bold text-slate-500 uppercase mb-2">Chứng chỉ & Tiêu chuẩn đang duy trì</h4>
+                                                <div className="flex gap-2 flex-wrap">
+                                                    {detail.gov.certs.map(c => <span key={c} className="text-[11px] font-bold px-3 py-1.5 bg-indigo-50 border border-indigo-100 text-indigo-700 rounded-lg">{c}</span>)}
+                                                </div>
+                                            </div>
+                                            <div className="pt-2">
+                                                <MetricRow icon="file-text" label="Nghĩa vụ tài chính (Tiền thuê, hạ tầng)" value={detail.gov.finance} highlight={tenant.status!=='critical'} />
+                                                <MetricRow icon="check-square" label="Audit Score (Điểm đánh giá tuân thủ BQL)" value={detail.gov.audit} />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <h3 className="text-lg font-extrabold text-slate-800 mb-4 flex items-center gap-2"><div className="p-1.5 bg-orange-100 rounded-lg"><Icon name="award" size={18} className="text-brand-orange"/></div> E. Gamification & Đối sánh</h3>
+                                        <div className="bg-gradient-to-r from-orange-50 to-amber-50 p-6 rounded-2xl border border-orange-100 shadow-sm flex items-center justify-between">
+                                            <div>
+                                                <p className="text-sm font-extrabold text-orange-900 mb-1">ESG Ranking Toàn KCN</p>
+                                                <p className="text-[11px] font-semibold text-orange-700/80 max-w-[200px]">Xếp hạng dựa trên ý thức bảo vệ môi trường, an toàn & tuân thủ.</p>
+                                            </div>
+                                            <div className="text-center bg-white py-3 px-6 rounded-xl shadow-sm border border-orange-100">
+                                                <div className="text-3xl font-extrabold text-brand-orange">{detail.rank.pos}</div>
+                                                <div className="text-[10px] font-extrabold text-slate-500 mt-1 uppercase tracking-wider">Thang điểm: {detail.rank.score}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
 
 
         // --- VIEWS ---
@@ -1178,7 +1351,8 @@
         // 4. Digital Twin Map View
         const DigitalTwinView = () => {
             const [activeLayers, setActiveLayers] = React.useState({ power: true, water: false, traffic: true });
-            const [selectedTenant, setSelectedTenant] = React.useState(mockTenants[0]);
+            const [selectedTenant, setSelectedTenant] = React.useState(null); // Không select mặc định để trống popup
+            const [isModalOpen, setIsModalOpen] = React.useState(false); // State mở Modal
 
             const toggleLayer = (layer) => {
                 setActiveLayers(prev => ({ ...prev, [layer]: !prev[layer] }));
@@ -1189,23 +1363,30 @@
                     case 'normal': return 'bg-white shadow-[0_4px_20px_rgba(0,0,0,0.06)] hover:shadow-[0_8px_25px_rgba(0,200,83,0.25)] text-[#00C853]';
                     case 'warning': return 'bg-white shadow-[0_4px_20px_rgba(0,0,0,0.06)] hover:shadow-[0_8px_25px_rgba(255,145,0,0.3)] text-[#FF9100]';
                     case 'critical': return 'bg-white shadow-[0_4px_20px_rgba(239,68,68,0.2)] pulse-dot text-red-500';
-                    case 'empty': return 'bg-slate-50 shadow-sm border border-slate-100 text-slate-500';
+                    case 'empty': return 'bg-slate-50 shadow-sm border border-slate-200 text-slate-500';
                     default: return 'bg-white shadow-md';
                 }
             };
 
             const getSelectionStyle = (status) => {
+                // Thay vì border/ring, dùng shadow tinh tế để loại bỏ đường viền theo yêu cầu
                 switch(status) {
-                    case 'normal': return 'shadow-[0_0_20px_rgba(0,200,83,0.4)] scale-[1.05] z-30 ring-2 ring-[#00C853] ring-offset-2 ring-offset-white';
-                    case 'warning': return 'shadow-[0_0_20px_rgba(255,145,0,0.4)] scale-[1.05] z-30 ring-2 ring-[#FF9100] ring-offset-2 ring-offset-white';
-                    case 'critical': return 'shadow-[0_0_25px_rgba(239,68,68,0.6)] scale-[1.05] z-30 ring-2 ring-red-500 ring-offset-2 ring-offset-white';
-                    case 'empty': return 'shadow-[0_0_15px_rgba(0,0,0,0.1)] scale-[1.05] z-30 ring-1 ring-slate-300 ring-offset-2 ring-offset-white';
+                    case 'normal': return 'shadow-[0_0_25px_rgba(0,200,83,0.5)] scale-[1.05] z-30';
+                    case 'warning': return 'shadow-[0_0_25px_rgba(255,145,0,0.5)] scale-[1.05] z-30';
+                    case 'critical': return 'shadow-[0_0_30px_rgba(239,68,68,0.7)] scale-[1.05] z-30';
+                    case 'empty': return 'shadow-[0_0_20px_rgba(0,0,0,0.15)] scale-[1.05] z-30';
                     default: return 'shadow-[0_0_20px_rgba(0,0,0,0.1)] scale-[1.05] z-30';
                 }
             };
 
+            const handlePlotClick = (tenant) => {
+                if(tenant.status === 'empty') return; // Không mở modal cho đất trống
+                setSelectedTenant(tenant);
+                setIsModalOpen(true);
+            };
+
             return (
-                <div className="space-y-6 animate-fade-in pb-10 h-full flex flex-col">
+                <div className="space-y-6 animate-fade-in pb-10 h-full flex flex-col relative">
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 mb-2">
                         <div>
                             <StatusBadge status="active" text="Hệ thống Live" icon="radio" className="mb-2" />
@@ -1260,8 +1441,8 @@
                                     {mockTenants.map(tenant => (
                                         <div 
                                             key={tenant.id} 
-                                            onClick={() => setSelectedTenant(tenant)}
-                                            className={`dt-plot cursor-pointer rounded-xl flex flex-col overflow-hidden min-h-[90px] ${getStatusStyles(tenant.status)} ${selectedTenant?.id === tenant.id ? getSelectionStyle(tenant.status) : ''}`}
+                                            onClick={() => handlePlotClick(tenant)}
+                                            className={`dt-plot cursor-pointer rounded-xl flex flex-col overflow-hidden min-h-[90px] border-none ${getStatusStyles(tenant.status)} ${selectedTenant?.id === tenant.id ? getSelectionStyle(tenant.status) : ''}`}
                                         >
                                             {/* Image Area */}
                                             <div className="relative h-16 w-full bg-slate-100 shrink-0">
@@ -1300,8 +1481,8 @@
                                         {mockUtilities.map(utility => (
                                             <div 
                                                 key={utility.id} 
-                                                onClick={() => setSelectedTenant(utility)}
-                                                className={`dt-plot cursor-pointer rounded-xl flex flex-col overflow-hidden min-h-[100px] ${getStatusStyles(utility.status)} ${selectedTenant?.id === utility.id ? getSelectionStyle(utility.status) : ''}`}
+                                                onClick={() => handlePlotClick(utility)}
+                                                className={`dt-plot cursor-pointer rounded-xl flex flex-col overflow-hidden min-h-[100px] border-none ${getStatusStyles(utility.status)} ${selectedTenant?.id === utility.id ? getSelectionStyle(utility.status) : ''}`}
                                             >
                                                 {/* Image Area */}
                                                 <div className="relative h-20 w-full bg-slate-100 shrink-0">
@@ -1369,78 +1550,39 @@
                                 </div>
                             </Card>
 
-                            {/* Tenant/Utility Details */}
-                            <Card title="Chi tiết Phân khu" icon="target" className="flex-1">
-                                {selectedTenant ? (
-                                    <div className="space-y-4 animate-fade-in flex flex-col h-full overflow-y-auto">
-                                        <div className="flex items-start justify-between">
-                                            <div>
-                                                <h4 className="text-lg font-extrabold text-slate-900">{selectedTenant.name}</h4>
-                                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mt-1">
-                                                    {selectedTenant.type === 'Utility' ? 'Hạ tầng Trung tâm' : `Lô ${selectedTenant.id} \u2022 ${selectedTenant.type}`}
-                                                </p>
-                                            </div>
-                                            <StatusBadge 
-                                                status={selectedTenant.status === 'normal' ? 'active' : selectedTenant.status === 'warning' ? 'warning' : selectedTenant.status === 'critical' ? 'error' : 'neutral'} 
-                                                text={selectedTenant.status === 'normal' ? 'Tốt' : selectedTenant.status === 'warning' ? 'Cảnh báo' : selectedTenant.status === 'critical' ? 'Sự cố' : 'Trống'} 
-                                            />
-                                        </div>
-
-                                        {selectedTenant.alertMsg && (
-                                            <AlertBox type={selectedTenant.status === 'warning' ? 'warning' : 'error'} title="Phát hiện vấn đề" desc={selectedTenant.alertMsg} />
-                                        )}
-
-                                        {selectedTenant.status !== 'empty' ? (
-                                            <div className="space-y-3 mt-4 flex-1">
-                                                {/* Hiển thị Metric động cho Utility */}
-                                                {selectedTenant.type === 'Utility' && selectedTenant.metrics && selectedTenant.metrics.map((metric, idx) => (
-                                                    <div key={idx} className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex justify-between items-center">
-                                                        <span className="text-xs font-bold text-slate-600">{metric.label}</span>
-                                                        <span className="text-sm font-extrabold text-slate-900">{metric.value} <span className="text-[10px] text-slate-500 font-semibold">{metric.unit}</span></span>
-                                                    </div>
-                                                ))}
-
-                                                {/* Hiển thị Metric tĩnh cho Tenant bình thường */}
-                                                {selectedTenant.type !== 'Utility' && (
-                                                    <>
-                                                        <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex justify-between items-center">
-                                                            <span className="text-xs font-bold text-slate-600">Năng lượng (EUI)</span>
-                                                            <span className={`text-sm font-extrabold ${selectedTenant.eui > 130 ? 'text-red-500' : 'text-slate-900'}`}>{selectedTenant.eui} <span className="text-[10px] text-slate-500 font-semibold">kWh/m²</span></span>
-                                                        </div>
-                                                        <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex justify-between items-center">
-                                                            <span className="text-xs font-bold text-slate-600">Tiêu thụ nước</span>
-                                                            <span className="text-sm font-extrabold text-slate-900">{selectedTenant.water} <span className="text-[10px] text-slate-500 font-semibold">m³/tháng</span></span>
-                                                        </div>
-                                                        <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex justify-between items-center">
-                                                            <span className="text-xs font-bold text-slate-600">Nhân sự (Hiện tại)</span>
-                                                            <span className="text-sm font-extrabold text-slate-900">{selectedTenant.workers} <span className="text-[10px] text-slate-500 font-semibold">Người</span></span>
-                                                        </div>
-                                                    </>
-                                                )}
-                                            </div>
-                                        ) : (
-                                            <div className="flex-1 flex items-center justify-center text-sm font-bold text-slate-400 text-center p-6 border border-slate-200 border-solid rounded-xl bg-slate-50">
-                                                Lô đất hiện chưa có dữ liệu vận hành.
-                                            </div>
-                                        )}
-
-                                        <button className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-colors mt-auto shrink-0">
-                                            Xem Báo Cáo Đầy Đủ
-                                        </button>
+                            {/* Tóm tắt tổng quan thay vì Chi tiết nhỏ */}
+                            <Card title="Trạng thái Tổng quan" icon="activity" className="flex-1">
+                                <div className="space-y-4 animate-fade-in flex flex-col h-full">
+                                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex items-center justify-between">
+                                        <span className="text-sm font-bold text-slate-700">Hoạt động bình thường</span>
+                                        <span className="text-lg font-extrabold text-brand-green">25/30</span>
                                     </div>
-                                ) : (
-                                    <div className="flex-1 flex items-center justify-center text-sm font-bold text-slate-400 text-center">
-                                        Vui lòng chọn một nhà máy trên bản đồ để xem chi tiết.
+                                    <div className="bg-orange-50 p-4 rounded-xl border border-orange-100 flex items-center justify-between">
+                                        <span className="text-sm font-bold text-orange-800">Cảnh báo ngưỡng (Warning)</span>
+                                        <span className="text-lg font-extrabold text-brand-orange">3/30</span>
                                     </div>
-                                )}
+                                    <div className="bg-red-50 p-4 rounded-xl border border-red-100 flex items-center justify-between">
+                                        <span className="text-sm font-bold text-red-700">Sự cố nghiêm trọng (Critical)</span>
+                                        <span className="text-lg font-extrabold text-red-600 pulse-dot rounded-full w-8 h-8 flex items-center justify-center bg-white shadow-sm">2</span>
+                                    </div>
+                                    
+                                    <div className="mt-auto pt-4 border-t border-slate-200">
+                                        <p className="text-xs font-semibold text-slate-500 text-center mb-3">
+                                            <Icon name="mouse-pointer-click" size={14} className="inline mr-1 -mt-0.5"/>
+                                            Bấm vào một phân khu trên bản đồ để xem Dashboard ESG chuyên sâu.
+                                        </p>
+                                    </div>
+                                </div>
                             </Card>
 
                         </div>
                     </div>
+                    
+                    {/* Render Popup Modal nếu có */}
+                    {isModalOpen && <TenantDetailModal tenant={selectedTenant} onClose={() => setIsModalOpen(false)} />}
                 </div>
             );
         };
-
 
         // Main App Component
         const App = () => {
