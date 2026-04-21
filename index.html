@@ -1,0 +1,1559 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GreenPark OS - Eco-Industrial Dashboard</title>
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            blue: '#0052FF',
+                            lightblue: '#E5F0FF',
+                            green: '#00C853',
+                            lightgreen: '#E5F9ED',
+                            orange: '#FF9100',
+                            dark: '#0F172A',
+                            gray: '#64748B'
+                        }
+                    },
+                    boxShadow: {
+                        'glass': '0 8px 32px 0 rgba(31, 38, 135, 0.07)',
+                        'widget': '0 4px 20px 0 rgba(0, 0, 0, 0.05)',
+                        'neon-green': '0 0 15px rgba(0, 200, 83, 0.5)',
+                        'neon-orange': '0 0 20px rgba(255, 145, 0, 0.6)',
+                        'neon-red': '0 0 25px rgba(239, 68, 68, 0.8)'
+                    },
+                    animation: {
+                        'flow-traffic': 'flow 3s linear infinite',
+                        'dash-flow': 'dash 2s linear infinite'
+                    },
+                    keyframes: {
+                        flow: {
+                            '0%': { transform: 'translateY(-100%)' },
+                            '100%': { transform: 'translateY(100%)' }
+                        },
+                        dash: {
+                            'to': { strokeDashoffset: '-20' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    
+    <!-- Babel -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        body {
+            /* Hình nền kiến trúc/đô thị sáng màu tạo cảm giác hiện đại */
+            background-image: url('https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=2070&auto=format&fit=crop');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            color: #0F172A;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            overflow-x: hidden;
+            background-color: #F1F5F9; /* Fallback */
+        }
+        
+        /* Lớp phủ sáng để làm mờ hình nền, làm nổi bật nội dung */
+        .bg-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(248, 250, 252, 0.88);
+            z-index: -1;
+        }
+
+        /* Glassmorphism utility giống Voltera */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 1);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.05);
+        }
+
+        .glass-panel-solid {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(241, 245, 249, 1);
+            box-shadow: 0 4px 24px -2px rgba(15, 23, 42, 0.04);
+        }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
+
+        /* Pulse dot for alerts */
+        .pulse-dot {
+            box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+
+        /* Digital Twin Map Specific Styles */
+        .dt-plot {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        .dt-plot:hover {
+            transform: translateY(-4px) scale(1.02);
+            z-index: 20;
+        }
+        
+        /* Data Layers Visuals */
+        .layer-power .dt-plot::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border: 2px dashed rgba(59, 130, 246, 0.8);
+            border-radius: inherit;
+            pointer-events: none;
+            z-index: 15;
+        }
+        .layer-water .dt-plot::after {
+            content: '';
+            position: absolute;
+            bottom: 0px; left: 10%; right: 10%; height: 4px;
+            background-color: rgba(6, 182, 212, 0.9);
+            border-radius: 4px 4px 0 0;
+            z-index: 20;
+        }
+        .layer-traffic .dt-map-grid {
+            gap: 20px; /* Widen roads when traffic is on */
+        }
+        .traffic-particle {
+            position: absolute;
+            width: 6px; height: 6px;
+            background: #F97316;
+            border-radius: 50%;
+            box-shadow: 0 0 10px #F97316;
+            animation: flow-traffic 4s linear infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-overlay"></div>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        // --- UTILS & MICRO COMPONENTS ---
+        const Icon = ({ name, size = 20, className = '', color = 'currentColor', strokeWidth = 1.5 }) => {
+            const iconHtml = lucide.icons[name]?.toSvg({ width: size, height: size, class: className, stroke: color, 'stroke-width': strokeWidth });
+            return iconHtml ? <span dangerouslySetInnerHTML={{ __html: iconHtml }} /> : null;
+        };
+
+        const Card = ({ children, className = '', title, subtitle, action, type = 'solid', icon }) => {
+            const baseClass = type === 'solid' ? 'glass-panel-solid' : 'glass-panel';
+            return (
+                <div className={`${baseClass} rounded-3xl p-6 transition-all hover:shadow-lg flex flex-col ${className}`}>
+                    {(title || action) && (
+                        <div className="flex justify-between items-start mb-5 pb-4 border-b border-slate-100/50 shrink-0">
+                            <div className="flex items-center gap-3">
+                                {icon && <div className="p-2 bg-slate-100 rounded-xl text-brand-blue"><Icon name={icon} size={20} strokeWidth={2} /></div>}
+                                <div>
+                                    {title && <h3 className="font-bold text-slate-800 text-lg leading-tight">{title}</h3>}
+                                    {subtitle && <p className="text-xs font-semibold text-slate-500 mt-1 uppercase tracking-wider">{subtitle}</p>}
+                                </div>
+                            </div>
+                            {action}
+                        </div>
+                    )}
+                    <div className="flex-1 flex flex-col min-h-0">
+                        {children}
+                    </div>
+                </div>
+            );
+        };
+
+        const StatusBadge = ({ status, text, icon, className="" }) => {
+            const styles = {
+                active: 'bg-brand-lightgreen text-brand-green border-brand-green/20',
+                warning: 'bg-orange-50 text-brand-orange border-brand-orange/20',
+                error: 'bg-red-50 text-red-600 border-red-200',
+                info: 'bg-brand-lightblue text-brand-blue border-brand-blue/20',
+                neutral: 'bg-slate-100 text-slate-600 border-slate-200'
+            };
+            return (
+                <span className={`px-3 py-1.5 text-[11px] uppercase tracking-wider font-bold border rounded-full flex items-center gap-1.5 w-fit ${styles[status]} ${className}`}>
+                    {icon && <Icon name={icon} size={12} strokeWidth={2.5} />}
+                    {text}
+                </span>
+            );
+        };
+
+        const AlertBox = ({ type = 'warning', title, desc, actionText }) => {
+            const styles = {
+                warning: 'bg-orange-50 border-orange-200 text-brand-orange',
+                error: 'bg-red-50 border-red-200 text-red-600',
+                info: 'bg-blue-50 border-blue-200 text-brand-blue'
+            };
+            const iconMap = { warning: 'alert-triangle', error: 'octagon-alert', info: 'info' };
+            return (
+                <div className={`p-3 rounded-2xl border flex items-start gap-3 ${styles[type]}`}>
+                    <div className="mt-0.5"><Icon name={iconMap[type]} size={18} /></div>
+                    <div className="flex-1">
+                        <h4 className="text-sm font-bold">{title}</h4>
+                        <p className="text-xs mt-1 opacity-80 leading-relaxed">{desc}</p>
+                    </div>
+                    {actionText && <button className="text-xs font-bold underline underline-offset-2 whitespace-nowrap">{actionText}</button>}
+                </div>
+            );
+        };
+
+        // Biểu đồ bán nguyệt (Gauge) phong cách Voltera
+        const GaugeChart = ({ value, max = 100, label, suffix = "%", color = "#0052FF" }) => {
+            const radius = 40;
+            const circumference = Math.PI * radius;
+            const strokeDashoffset = circumference - (value / max) * circumference;
+            return (
+                <div className="flex flex-col items-center justify-center relative">
+                    <svg viewBox="0 0 100 55" className="w-full max-w-[120px] drop-shadow-sm">
+                        <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="#F1F5F9" strokeWidth="8" strokeLinecap="round" />
+                        <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke={color} strokeWidth="8" strokeLinecap="round" 
+                              strokeDasharray={circumference} strokeDashoffset={strokeDashoffset} 
+                              style={{ transition: 'stroke-dashoffset 1.5s ease-in-out' }} />
+                    </svg>
+                    <div className="absolute top-[45%] left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center w-full">
+                        <span className="text-2xl font-extrabold text-slate-800">{value}</span>
+                        <span className="text-xs font-bold text-slate-500 ml-0.5">{suffix}</span>
+                    </div>
+                    {label && <div className="text-[10px] font-bold text-slate-400 mt-1 text-center uppercase tracking-wider leading-tight">{label}</div>}
+                </div>
+            );
+        };
+
+        const SimpleProgressBar = ({ label, value, max = 100, colorClass = 'bg-brand-blue', suffix = '%' }) => (
+            <div className="w-full mb-3 last:mb-0">
+                <div className="flex justify-between text-xs mb-1.5">
+                    <span className="text-slate-600 font-semibold">{label}</span>
+                    <span className="font-bold text-slate-800">{value}{suffix}</span>
+                </div>
+                <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                    <div className={`${colorClass} h-1.5 rounded-full`} style={{ width: `${(value/max)*100}%` }}></div>
+                </div>
+            </div>
+        );
+
+        const MetricRow = ({ label, value, subValue, highlight = false, icon }) => (
+            <div className="flex justify-between items-center py-2.5 border-b border-slate-50 last:border-0">
+                <div className="flex items-center gap-2">
+                    {icon && <Icon name={icon} size={14} className="text-slate-400" />}
+                    <span className="text-sm font-medium text-slate-600">{label}</span>
+                </div>
+                <div className="text-right">
+                    <span className={`text-sm font-bold ${highlight ? 'text-brand-blue' : 'text-slate-900'}`}>{value}</span>
+                    {subValue && <span className="text-[10px] text-slate-400 ml-1.5 font-semibold bg-slate-100 px-1.5 py-0.5 rounded">{subValue}</span>}
+                </div>
+            </div>
+        );
+
+
+        // --- DATA MOCK CHO DIGITAL TWIN ---
+        const factoryImages = [
+            'https://images.unsplash.com/photo-1581094288338-2314dddb7ece?auto=format&fit=crop&w=300&q=80',
+            'https://images.unsplash.com/photo-1504917595217-d4dc5ebe6122?auto=format&fit=crop&w=300&q=80',
+            'https://images.unsplash.com/photo-1533090161767-e6ffed986c88?auto=format&fit=crop&w=300&q=80',
+            'https://images.unsplash.com/photo-1565891741441-64926e441838?auto=format&fit=crop&w=300&q=80',
+            'https://images.unsplash.com/photo-1513828583688-c52646db42da?auto=format&fit=crop&w=300&q=80',
+            'https://images.unsplash.com/photo-1496247749665-49cf5b1022e9?auto=format&fit=crop&w=300&q=80'
+        ];
+
+        const generateTenants = () => {
+            return Array.from({ length: 30 }, (_, i) => {
+                const id = i + 1;
+                let status = 'normal'; // normal, warning, critical, empty
+                let name = `Nhà máy ${id}`;
+                let alertMsg = '';
+                let type = 'Electronics';
+                let eui = Math.floor(Math.random() * 40) + 80; // 80 - 120
+                let image = factoryImages[i % factoryImages.length];
+
+                if ([7, 14, 22].includes(id)) { 
+                    status = 'warning'; 
+                    alertMsg = 'Cảnh báo ngưỡng tiêu thụ năng lượng vượt chuẩn ASHRAE.'; 
+                    name = `Tập đoàn Tech ${id}`;
+                    eui = 145;
+                } else if ([4, 19].includes(id)) { 
+                    status = 'critical'; 
+                    alertMsg = 'Vi phạm an toàn PCCC / Rò rỉ nước thải chưa xử lý.'; 
+                    name = `Heavy Industry ${id}`;
+                    type = 'Manufacturing';
+                    eui = 180;
+                } else if ([12, 25, 28, 29, 30].includes(id)) { 
+                    status = 'empty'; 
+                    name = 'Đang xây dựng / Trống'; 
+                    type = 'N/A';
+                    eui = 0;
+                    image = '';
+                } else { 
+                    name = `Eco Factory ${id}`; 
+                    if(id % 3 === 0) type = 'Logistics';
+                }
+
+                return { 
+                    id: `T${id.toString().padStart(2, '0')}`, 
+                    name, status, alertMsg, type, eui, image,
+                    water: status === 'empty' ? 0 : Math.floor(Math.random() * 2000) + 500,
+                    workers: status === 'empty' ? 0 : Math.floor(Math.random() * 400) + 50,
+                };
+            });
+        };
+        const mockTenants = generateTenants();
+
+        // Data Mock cho Hạ tầng Tiện ích
+        const mockUtilities = [
+            {
+                id: 'U01',
+                name: 'Trạm Điện & Solar',
+                type: 'Utility',
+                status: 'normal',
+                icon: 'zap',
+                image: 'https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&w=300&q=80',
+                metrics: [
+                    { label: 'Công suất tải', value: '45.2', unit: 'MW' },
+                    { label: 'Năng lượng mặt trời', value: '12.5', unit: 'MW' },
+                    { label: 'Dung lượng BESS', value: '85', unit: '%' }
+                ]
+            },
+            {
+                id: 'U02',
+                name: 'Nhà máy Cấp Nước',
+                type: 'Utility',
+                status: 'normal',
+                icon: 'droplets',
+                image: 'https://images.unsplash.com/photo-1551244072-5d12893278ab?auto=format&fit=crop&w=300&q=80',
+                metrics: [
+                    { label: 'Lưu lượng cấp', value: '5,000', unit: 'm³/ngày' },
+                    { label: 'Áp suất mạngưới', value: '4.2', unit: 'bar' },
+                    { label: 'Độ đục (NTU)', value: '< 1.0', unit: '(Đạt chuẩn)' }
+                ]
+            },
+            {
+                id: 'U03',
+                name: 'Trạm XL Nước Thải',
+                type: 'Utility',
+                status: 'warning',
+                icon: 'recycle',
+                alertMsg: 'Nồng độ COD đầu vào tăng cao, hệ thống đang kích hoạt tăng cường vi sinh.',
+                image: 'https://images.unsplash.com/photo-1518623000676-e26dd9c9d5ee?auto=format&fit=crop&w=300&q=80',
+                metrics: [
+                    { label: 'Lưu lượng xử lý', value: '4,200', unit: 'm³/ngày' },
+                    { label: 'Chỉ số COD đầu ra', value: '45', unit: 'mg/L (Tốt)' },
+                    { label: 'Tỷ lệ Tái sử dụng', value: '30', unit: '%' }
+                ]
+            }
+        ];
+
+
+        // --- VIEWS ---
+
+        // 1. LEED Dashboard
+        const LeedView = () => (
+            <div className="space-y-6 animate-fade-in pb-10">
+                {/* Header Section */}
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 mb-6">
+                    <div>
+                        <div className="flex items-center gap-3 mb-2">
+                            <StatusBadge status="active" text="O+M Platinum (Dự kiến)" icon="award" />
+                            <StatusBadge status="info" text="BD+C Gold" icon="building" />
+                        </div>
+                        <h2 className="text-3xl font-extrabold text-slate-900">LEED v5 Command Center</h2>
+                        <p className="text-slate-500 font-medium mt-1">Nền tảng hạ tầng (BD+C) & Tối ưu hóa vận hành (O+M) theo thời gian thực.</p>
+                    </div>
+                    <div className="flex gap-2">
+                        <button className="flex items-center gap-2 px-4 py-2 bg-white rounded-xl text-sm font-bold text-slate-700 shadow-sm hover:shadow">
+                            <Icon name="calendar" size={16} /> Tháng này
+                        </button>
+                        <button className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-sm font-bold shadow-sm hover:bg-slate-800">
+                            <Icon name="download" size={16} /> Xuất Báo cáo
+                        </button>
+                    </div>
+                </div>
+
+                {/* ROW 1: ENERGY (Spans 2 cols) & WATER (Spans 1 col) */}
+                <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                    
+                    {/* MODULE 1: ENERGY & ATMOSPHERE */}
+                    <Card className="xl:col-span-2" title="1. Năng lượng & Khí nhà kính" subtitle="Energy & Atmosphere - Mục tiêu Decarbonization" icon="zap">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            
+                            {/* Col 1: EUI, Energy Star, Renewables */}
+                            <div className="space-y-5">
+                                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex items-center justify-between">
+                                    <div>
+                                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">EUI Thực tế</p>
+                                        <div className="text-3xl font-extrabold text-slate-900 mt-1">112 <span className="text-xs text-slate-500">kWh/m²</span></div>
+                                        <p className="text-[10px] text-brand-green font-bold mt-1 bg-brand-lightgreen px-2 py-0.5 rounded w-fit">Mục tiêu ASHRAE 90.1: 130</p>
+                                    </div>
+                                    <GaugeChart value={85} label="Energy Star" color="#00C853" />
+                                </div>
+                                
+                                <div>
+                                    <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-3">Chỉ số Năng lượng Tái tạo</h4>
+                                    <SimpleProgressBar label="Tier 1 (Điện mặt trời áp mái tại chỗ)" value={35} colorClass="bg-brand-orange" />
+                                    <SimpleProgressBar label="Tier 2, 3 (Mua ngoài / I-RECs)" value={15} colorClass="bg-brand-blue" />
+                                    <div className="text-xs text-slate-500 mt-2 text-right font-medium">Tổng mức tiêu thụ tái tạo: <span className="font-bold text-slate-800">50%</span></div>
+                                </div>
+                            </div>
+
+                            {/* Col 2: Real-time Metering & Peak Load */}
+                            <div className="space-y-4 md:border-l md:border-r border-slate-100 md:px-5">
+                                <div>
+                                    <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Giám sát năng lượng (Real-time Metering)</h4>
+                                    <MetricRow icon="plug" label="Điện (Electricity)" value="450 MWh" subValue="-2% YoY" highlight />
+                                    <MetricRow icon="flame" label="Khí đốt (Gas)" value="120 MMBtu" subValue="+1% YoY" />
+                                    <MetricRow icon="snowflake" label="Nước lạnh (Chilled W.)" value="210 RTh" subValue="-5% YoY" />
+                                    <MetricRow icon="wind" label="Hơi nước (Steam)" value="85 Tấn" subValue="Ổn định" />
+                                </div>
+                                
+                                <div className="pt-3 border-t border-slate-100">
+                                    <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Quản lý Tải đỉnh & Nhu cầu</h4>
+                                    <div className="flex justify-between items-center bg-slate-50 px-3 py-2.5 rounded-lg border border-slate-100">
+                                        <span className="text-xs font-semibold text-slate-700">Nhu cầu cao điểm (Peak Demand)</span>
+                                        <span className="text-sm font-extrabold text-red-500">4.2 MW</span>
+                                    </div>
+                                    <StatusBadge status="warning" text="Auto Demand Side Management: Active" className="mt-2 w-full justify-center" />
+                                </div>
+                            </div>
+
+                            {/* Col 3: Refrigerant & Carbon Projection */}
+                            <div className="space-y-4">
+                                <div>
+                                    <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Kiểm soát Môi chất lạnh</h4>
+                                    <div className="bg-brand-lightgreen/30 border border-brand-green/20 p-3 rounded-xl flex items-center justify-between">
+                                        <div>
+                                            <span className="block text-xs font-bold text-slate-800 mb-0.5">Tỷ lệ phát thải rò rỉ: 0.05%</span>
+                                            <span className="block text-[10px] text-brand-green font-bold">An toàn (GWP dưới ngưỡng)</span>
+                                        </div>
+                                        <Icon name="check-circle" className="text-brand-green" size={24} />
+                                    </div>
+                                </div>
+                                <div className="pt-2">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Dự phóng Carbon 25 năm</h4>
+                                        <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">Kế hoạch Khử Carbon</span>
+                                    </div>
+                                    <div className="h-24 bg-slate-50 rounded-xl border border-slate-100 flex items-end p-2 gap-1.5">
+                                        {/* Mock 25-year projection bar chart */}
+                                        {[100, 95, 80, 65, 50, 35, 20, 5].map((h, i) => (
+                                            <div key={i} className="flex-1 bg-slate-200 rounded-t-sm relative group" style={{height: '100%'}}>
+                                                <div className={`${h <= 20 ? 'bg-brand-green' : 'bg-brand-blue'} rounded-t-sm transition-all`} style={{height: `${h}%`}}></div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </Card>
+
+                    {/* MODULE 2: WATER EFFICIENCY */}
+                    <Card title="2. Hiệu quả Nước" subtitle="Water Efficiency - Quản trị vòng tuần hoàn" icon="droplets">
+                        <div className="flex items-center justify-between mb-5 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                            <div>
+                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Chỉ số WUI</p>
+                                <div className="text-3xl font-extrabold text-slate-900 mt-1">38 <span className="text-xs text-slate-500">L/m²</span></div>
+                                <p className="text-[10px] text-brand-green font-bold mt-1 bg-brand-lightgreen px-2 py-0.5 rounded w-fit">Mức cơ sở (Baseline): 50</p>
+                            </div>
+                            <div className="w-14 h-14 rounded-full border-4 border-brand-blue flex items-center justify-center bg-white shadow-sm">
+                                <Icon name="droplet" className="text-brand-blue" fill="#E5F0FF" />
+                            </div>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div>
+                                <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Hệ thống Đồng hồ phụ (Submetering)</h4>
+                                <div className="flex h-3 rounded-full overflow-hidden mb-2.5">
+                                    <div className="bg-blue-500 w-[40%]" title="Sinh hoạt trong nhà: 40%"></div>
+                                    <div className="bg-cyan-400 w-[35%]" title="Tháp giải nhiệt: 35%"></div>
+                                    <div className="bg-indigo-400 w-[15%]" title="Quy trình sản xuất: 15%"></div>
+                                    <div className="bg-emerald-400 w-[10%]" title="Tưới tiêu cảnh quan: 10%"></div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-x-2 gap-y-1.5 text-[10px] font-bold text-slate-600">
+                                    <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-blue-500"></div> Sinh hoạt nhà (40%)</div>
+                                    <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-cyan-400"></div> Tháp giải nhiệt (35%)</div>
+                                    <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-indigo-400"></div> QT Sản xuất (15%)</div>
+                                    <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-emerald-400"></div> Tưới tiêu (10%)</div>
+                                </div>
+                            </div>
+                            
+                            <div className="pt-3 border-t border-slate-100 space-y-2.5">
+                                <MetricRow label="Sử dụng Nước tái thế (Mưa/Xử lý)" value="45%" subValue="Mục tiêu >30%" highlight />
+                                <AlertBox type="error" title="Cảnh báo Chu kỳ Tháp giải nhiệt" desc="Nồng độ Canxi & Silica vượt mức. Độ kiềm mất cân bằng. Giảm hiệu quả nước cấp." actionText="Mở Valve" />
+                                <AlertBox type="warning" title="Cảm biến rò rỉ (Leak Detection)" desc="Báo động dòng chảy bất thường tại đường ống tưới tiêu khu D." />
+                            </div>
+                        </div>
+                    </Card>
+                </div>
+
+                {/* ROW 2: IAQ, MATERIALS, SITES (3 cols) */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    
+                    {/* MODULE 3: IAQ */}
+                    <Card title="3. MT Trong Nhà (IAQ)" subtitle="Sức khỏe & Sự thoải mái" icon="wind">
+                        <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Giám sát Không khí Liên tục</h4>
+                        <div className="grid grid-cols-2 gap-3 mb-5">
+                            <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                                <div className="text-[10px] font-bold text-slate-500 uppercase">Nồng độ CO2</div>
+                                <div className="text-xl font-extrabold text-slate-800">650 <span className="text-[10px] font-semibold text-slate-400">ppm</span></div>
+                                <div className="text-[10px] text-brand-green font-bold mt-1">An toàn (&lt;1000 ppm)</div>
+                            </div>
+                            <div className="bg-orange-50 p-3 rounded-xl border border-orange-100 relative overflow-hidden">
+                                <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-brand-orange pulse-dot"></div>
+                                <div className="text-[10px] font-bold text-orange-600 uppercase">Bụi mịn PM2.5</div>
+                                <div className="text-xl font-extrabold text-orange-700">18 <span className="text-[10px] font-semibold opacity-70">µg/m³</span></div>
+                                <div className="text-[10px] text-brand-orange font-bold mt-1">Cảnh báo (&gt;15 µg/m³)</div>
+                            </div>
+                            <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                                <div className="text-[10px] font-bold text-slate-500 uppercase">TVOC (Hợp chất bay hơi)</div>
+                                <div className="text-xl font-extrabold text-slate-800">0.2 <span className="text-[10px] font-semibold text-slate-400">mg/m³</span></div>
+                            </div>
+                            <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex flex-col justify-between">
+                                <div className="flex justify-between items-end">
+                                    <div className="text-[10px] font-bold text-slate-500 uppercase">Nhiệt độ</div>
+                                    <div className="text-sm font-extrabold text-slate-800">24°C</div>
+                                </div>
+                                <div className="flex justify-between items-end mt-1 pt-1 border-t border-slate-200">
+                                    <div className="text-[10px] font-bold text-slate-500 uppercase">Độ ẩm tương đối</div>
+                                    <div className="text-sm font-extrabold text-slate-800">55%</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div className="space-y-1">
+                            <div className="flex justify-between items-center bg-brand-lightgreen/30 px-3 py-2.5 rounded-lg border border-brand-green/20 mb-3">
+                                <span className="text-xs font-bold text-slate-700">Chỉ số Trải nghiệm (Occupant)</span>
+                                <span className="text-sm font-extrabold text-brand-green">85% Hài lòng (Mục tiêu >80%)</span>
+                            </div>
+                            <MetricRow label="Lưu lượng khí tươi (Outdoor air)" value="Tối ưu" highlight />
+                            <MetricRow label="Bảo trì màng lọc (MERV 13 / ePM1)" value="Còn 20 ngày" subValue="Schedule" />
+                            <MetricRow label="Vệ sinh Xanh (ATP Testing)" value="92/100 Điểm" subValue="Hóa chất sinh học" />
+                        </div>
+                    </Card>
+
+                    {/* MODULE 4: MATERIALS */}
+                    <Card title="4. Vật liệu & Rác thải" subtitle="Vận hành Zero Waste" icon="recycle">
+                        <div className="flex items-center justify-center mb-6">
+                            <GaugeChart value={68} label="Tỷ lệ Chuyển hướng Rác thải" color="#FF9100" />
+                        </div>
+                        
+                        <div className="space-y-4">
+                            <div>
+                                <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Thống kê Phân loại (Định kỳ)</h4>
+                                <div className="bg-slate-50 rounded-xl border border-slate-100 p-3">
+                                    <MetricRow label="Hữu cơ (Ủ phân compost)" value="40 Tấn" />
+                                    <MetricRow label="Vô cơ (Tái chế/Tái sử dụng)" value="120 Tấn" highlight />
+                                    <MetricRow label="Mang đi chôn lấp/Đốt" value="75 Tấn" />
+                                </div>
+                            </div>
+
+                            <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                                <h4 className="text-[10px] font-bold text-brand-blue uppercase tracking-wider">Dấu chân Carbon Nội tại (Embodied)</h4>
+                                <div className="text-2xl font-extrabold text-slate-900 mt-1">450 <span className="text-xs text-slate-500">tCO2e</span></div>
+                                <p className="text-[10px] text-slate-500 mt-1 font-medium leading-relaxed">Áp dụng cho BD+C: Khối lượng CO2 tương đương từ các vật liệu xây dựng mới được sử dụng trong KCN.</p>
+                            </div>
+                        </div>
+                    </Card>
+
+                    {/* MODULE 5: SUSTAINABLE SITES */}
+                    <Card title="5. Vị trí & Cảnh quan" subtitle="Sustainable Sites & Giao thông" icon="map">
+                         <div className="mb-5">
+                            <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Tỷ lệ Giao thông Bền vững</h4>
+                            <div className="flex items-end gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                                <div className="text-4xl font-extrabold text-slate-900 leading-none">42%</div>
+                                <div className="text-[10px] font-semibold text-slate-500 pb-1 leading-tight">người lao động dùng xe đạp, xe buýt, carpool (Qua Camera AI).</div>
+                            </div>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div>
+                                <div className="flex justify-between text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">
+                                    <span>Trạng thái Trạm Sạc Xe Điện (EVSE)</span>
+                                    <span className="text-slate-900 font-extrabold">15/20 Đang sạc</span>
+                                </div>
+                                <div className="flex gap-1 h-6">
+                                    {/* Mock 20 chargers */}
+                                    {[...Array(15)].map((_,i) => <div key={`u${i}`} className="flex-1 bg-brand-green rounded-sm" title="Đang sạc"></div>)}
+                                    <div className="flex-1 bg-red-500 rounded-sm" title="Lỗi"></div>
+                                    <div className="flex-1 bg-red-500 rounded-sm" title="Lỗi"></div>
+                                    {[...Array(3)].map((_,i) => <div key={`e${i}`} className="flex-1 bg-slate-200 rounded-sm" title="Trống"></div>)}
+                                </div>
+                                <div className="flex justify-end gap-3 mt-1.5 text-[9px] font-bold text-slate-400 uppercase">
+                                    <span className="flex items-center gap-1"><div className="w-2 h-2 bg-brand-green rounded-sm"></div> Sạc</span>
+                                    <span className="flex items-center gap-1"><div className="w-2 h-2 bg-red-500 rounded-sm"></div> Lỗi</span>
+                                    <span className="flex items-center gap-1"><div className="w-2 h-2 bg-slate-200 rounded-sm"></div> Trống</span>
+                                </div>
+                            </div>
+
+                            <div className="space-y-2.5 pt-2 border-t border-slate-100">
+                                <div className="flex justify-between items-start bg-slate-50 p-3 rounded-xl border border-slate-100">
+                                    <div>
+                                        <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+                                            <Icon name="moon" size={14} className="text-indigo-500" /> Kiểm soát Ô nhiễm Ánh sáng
+                                        </div>
+                                        <div className="text-[10px] text-slate-500 mt-0.5">Tự động tắt đèn/rèm che ngoại khu.</div>
+                                    </div>
+                                    <StatusBadge status="active" text="00:00 - 06:00" />
+                                </div>
+                                <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                                     <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 mb-2">
+                                        <Icon name="sun" size={14} className="text-orange-500" /> Giảm Hiệu ứng Đảo nhiệt
+                                    </div>
+                                    <div className="flex justify-between text-[10px] font-bold">
+                                        <span className="text-brand-green">Mái xanh: 40%</span>
+                                        <span className="text-brand-blue">Phản xạ nhiệt: 30%</span>
+                                        <span className="text-slate-600">Mái che bãi xe: 100%</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </Card>
+                </div>
+
+                {/* ROW 3: COMMISSIONING & RESILIENCE (Full Width) */}
+                <Card title="6. Quản trị Tối ưu & Khả năng Phục hồi (MBCx)" subtitle="Integrative Process - The Brain điều hành tự động" icon="cpu">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        
+                        {/* FDD */}
+                        <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100">
+                            <div className="flex justify-between items-center mb-4">
+                                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Phát hiện Lỗi & Chẩn đoán (FDD)</h4>
+                                <span className="flex h-2.5 w-2.5 relative">
+                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
+                                </span>
+                            </div>
+                            <div className="space-y-3">
+                                <div className="bg-red-50 border border-red-100 p-3.5 rounded-xl">
+                                    <p className="text-[11px] font-bold text-red-600 mb-1 uppercase">Cảnh báo Cơ điện: HVAC AHU-2</p>
+                                    <p className="text-xs text-slate-600 leading-relaxed">Nguyên nhân gốc rễ: Short cycling (Chạy/Dừng liên tục). Khuyến nghị: Kiểm tra Thermostat hoặc Cảm biến lưu lượng.</p>
+                                </div>
+                                <div className="bg-white p-3.5 rounded-xl border border-slate-100 shadow-sm">
+                                    <p className="text-[11px] font-bold text-slate-500 mb-1 uppercase">Báo cáo NL Tự động (Anomaly)</p>
+                                    <p className="text-xs text-brand-green font-semibold">Chiller Trung tâm: Hoạt động tối ưu, không có dị thường dữ liệu.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Climate Resilience */}
+                        <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100">
+                             <div className="flex justify-between items-center mb-4">
+                                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Phục hồi Khí hậu (Resilience)</h4>
+                                <Icon name="cloud-lightning" className="text-brand-orange" size={20} />
+                            </div>
+                            <div className="flex flex-col h-[calc(100%-2.5rem)] justify-between">
+                                <div className="bg-orange-50 border border-orange-100 p-4 rounded-xl text-center shadow-sm">
+                                    <p className="text-[10px] font-bold text-brand-orange uppercase tracking-wider mb-2">Chế độ Quản lý Sự kiện Ngoài trời</p>
+                                    <p className="text-sm text-slate-900 font-bold">Cảnh báo Khói cháy rừng (AQI &gt; 150)</p>
+                                </div>
+                                <div className="mt-4 bg-white p-3 rounded-xl border border-slate-100 shadow-sm">
+                                    <div className="flex items-center justify-between text-xs font-semibold">
+                                        <span className="text-slate-600">Hành động tự động:</span>
+                                        <span className="bg-brand-lightgreen text-brand-green border border-brand-green/20 px-2 py-1 rounded">Đã ngắt khí tươi (100% Recirculate)</span>
+                                    </div>
+                                    <p className="text-[10px] text-slate-500 mt-2 leading-relaxed">Hệ thống sẵn sàng kịch bản đối phó ngập lụt / nhiệt độ cực đoan dựa trên API Thời tiết.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Power Resilience */}
+                        <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100">
+                             <div className="flex justify-between items-center mb-4">
+                                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Khả năng Phục hồi Năng lượng</h4>
+                                <Icon name="battery-charging" className="text-brand-green" size={20} />
+                            </div>
+                            <div className="space-y-4">
+                                <div className="flex justify-between items-end">
+                                    <div>
+                                        <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Dự trữ Pin (BESS)</p>
+                                        <div className="text-3xl font-extrabold text-slate-900 mt-1">85%</div>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Thời gian duy trì (Thiết yếu)</p>
+                                        <div className="text-xl font-bold text-brand-blue mt-1 bg-brand-lightblue px-2 py-1 rounded w-fit ml-auto">4.5 Giờ</div>
+                                    </div>
+                                </div>
+                                <div className="w-full bg-slate-200 rounded-full h-2.5">
+                                    <div className="bg-brand-green h-2.5 rounded-full" style={{ width: '85%' }}></div>
+                                </div>
+                                <p className="text-xs text-slate-600 leading-relaxed bg-white p-3 rounded-xl border border-slate-100 shadow-sm">
+                                    Sẵn sàng kích hoạt tự động trạng thái cách ly (Island Mode) khi mất điện lưới, ưu tiên duy trì Server điều hành, Bơm cứu hỏa và Chiếu sáng khẩn cấp.
+                                </p>
+                            </div>
+                        </div>
+
+                    </div>
+                </Card>
+            </div>
+        );
+
+        // 2. UNIDO Dashboard
+        const UnidoView = () => (
+            <div className="space-y-6 animate-fade-in pb-10">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 mb-6">
+                    <div>
+                        <StatusBadge status="info" text="Khung chuẩn Quốc tế IDR26" icon="globe" className="mb-2" />
+                        <h2 className="text-3xl font-extrabold text-slate-900">UNIDO EIP Matrix</h2>
+                        <p className="text-slate-500 font-medium mt-1">Tháp điều khiển Đô thị thu nhỏ (Smart City Control Tower) bao trùm 4 trụ cột.</p>
+                    </div>
+                    <div className="flex gap-2">
+                        <button className="flex items-center gap-2 px-4 py-2 bg-white rounded-xl text-sm font-bold text-slate-700 shadow-sm hover:shadow border border-slate-100">
+                            <Icon name="filter" size={16} /> Lọc dữ liệu
+                        </button>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                    {/* MODULE 1: QUẢN LÝ VÀ VẬN HÀNH KCN */}
+                    <Card title="1. Quản lý & Vận hành KCN" subtitle="Park Management - Điều phối Trung tâm" icon="cpu" className="h-full flex flex-col">
+                        <div className="space-y-5 flex-1">
+                            <div>
+                                <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-3">Trạng thái Hạ tầng Số & IoT</h4>
+                                <SimpleProgressBar label="Phủ sóng mạng 5G / Băng thông rộng" value={95} colorClass="bg-brand-blue" suffix="%" />
+                                <SimpleProgressBar label="Lắp đặt đồng hồ đo lường (Utilities)" value={100} colorClass="bg-brand-green" suffix="% (Mục tiêu 100%)" />
+                            </div>
+                            
+                            <div className="pt-3 border-t border-slate-100">
+                                <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Quản trị Tuân thủ & Chất lượng Dịch vụ</h4>
+                                <MetricRow icon="file-signature" label="DN ký kết cam kết KCN Sinh thái" value="100%" highlight />
+                                <MetricRow icon="smile" label="Mức độ hài lòng Dịch vụ BQL" value="85%" subValue="Mục tiêu ≥75%" />
+                            </div>
+                            
+                            <div className="pt-2 flex-1 flex flex-col justify-end">
+                                <AlertBox type="warning" title="Cảnh báo Rủi ro Khí hậu (Thời gian thực)" desc="Dự báo Sóng nhiệt (Heatwave) trong 72h tới. Yêu cầu kiểm tra hệ thống cấp nước và thông báo cho các xưởng đảm bảo an toàn lao động ngoài trời." actionText="Gửi Broadcast" />
+                            </div>
+                        </div>
+                    </Card>
+
+                    {/* MODULE 2: HIỆU QUẢ MÔI TRƯỜNG */}
+                    <Card title="2. Hiệu quả Môi trường" subtitle="Environment - Chuyển đổi Xanh & Cộng sinh" icon="leaf" className="h-full flex flex-col">
+                        <div className="space-y-4 flex-1">
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                                    <div className="text-[10px] font-bold text-slate-500 uppercase mb-1">Hiệu quả Carbon (MVA/tCO2)</div>
+                                    <div className="text-xl font-extrabold text-brand-green">$24.5k</div>
+                                </div>
+                                <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                                    <div className="text-[10px] font-bold text-slate-500 uppercase mb-1">Hiệu quả Vật liệu (MVA/Tấn)</div>
+                                    <div className="text-xl font-extrabold text-brand-blue">$12.8k</div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2.5">Kinh tế Tuần hoàn & Mạng lưới Cộng sinh</h4>
+                                <SimpleProgressBar label="Độ phủ ISO 50001 (Quản lý Năng lượng)" value={35} colorClass="bg-brand-orange" suffix="% (≥10%)" />
+                                <SimpleProgressBar label="DN áp dụng Cộng sinh (Symbiosis)" value={28} colorClass="bg-indigo-500" suffix="% (≥20%)" />
+                                <SimpleProgressBar label="Rác vô cơ được tái sử dụng/tái chế" value={45} colorClass="bg-cyan-500" suffix="% (≥25%)" />
+                            </div>
+
+                            <div className="pt-2 border-t border-slate-100 space-y-0.5">
+                                <MetricRow icon="shield-alert" label="Rác thải tiêu hủy an toàn (Không đốt mở)" value="100%" highlight />
+                                <MetricRow icon="droplet" label="Nước thải công nghiệp xử lý đạt chuẩn" value="100%" highlight />
+                                <MetricRow icon="refresh-cw" label="Nước tuần hoàn / Tái sử dụng toàn khu" value="30%" subValue="≥25%" />
+                                <MetricRow icon="sun" label="Sử dụng năng lượng tái tạo (RE)" value="45%" subValue="Trên tổng thụ" />
+                                <MetricRow icon="trees" label="Không gian mở (Hệ thực/động vật bản địa)" value="8%" subValue="≥5%" />
+                            </div>
+                        </div>
+                    </Card>
+
+                    {/* MODULE 3: HIỆU QUẢ XÃ HỘI */}
+                    <Card title="3. Hiệu quả Xã hội" subtitle="Social - Sức khỏe, Nhân lực & Cộng đồng" icon="users" className="h-full flex flex-col">
+                        <div className="space-y-4 flex-1">
+                            <div>
+                                <div className="flex justify-between items-center bg-brand-lightgreen/30 px-3 py-2.5 rounded-lg border border-brand-green/20 mb-2.5">
+                                    <span className="text-xs font-bold text-slate-700">Ngày không có tai nạn lao động</span>
+                                    <span className="text-sm font-extrabold text-brand-green">342 Ngày</span>
+                                </div>
+                                <MetricRow icon="shield-check" label="DN Lớn có HT Quản lý OH&S" value="82%" subValue="≥75%" highlight />
+                                <MetricRow icon="check-circle" label="Giải quyết vấn đề an ninh (<30 ngày)" value="100%" />
+                            </div>
+
+                            <div className="pt-2 border-t border-slate-100">
+                                <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2.5">Việc làm & Phát triển Nguồn nhân lực</h4>
+                                <SimpleProgressBar label="LĐ được đào tạo kỹ năng Số & Xanh" value={65} colorClass="bg-brand-blue" suffix="%" />
+                                <SimpleProgressBar label="DN có HT đào tạo (LĐ nữ hưởng lợi)" value={55} colorClass="bg-brand-orange" suffix="% (≥50%)" />
+                                <div className="mt-2"><MetricRow icon="heart" label="Chỉ số việc làm lương thiện (Decent work)" value="Đạt chuẩn" highlight /></div>
+                            </div>
+
+                            <div className="pt-2 border-t border-slate-100 space-y-0.5">
+                                <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Cộng đồng & Hạ tầng Xã hội</h4>
+                                <MetricRow icon="home" label="Hài lòng HT Xã hội (Nhà ở, Y tế, Giải trí)" value="85%" subValue="≥80%" />
+                                <MetricRow icon="users" label="Hoạt động kết nối cộng đồng địa phương" value="3/Năm" subValue="Ủng hộ 90%" />
+                            </div>
+
+                            <div className="pt-1 flex-1 flex flex-col justify-end">
+                                <AlertBox type="info" title="Hệ thống Quản lý Khiếu nại (Grievances)" desc="100% khiếu nại đang được phản hồi trong vòng 14 ngày và giải quyết dứt điểm trong 60 ngày theo đúng khung cam kết." />
+                            </div>
+                        </div>
+                    </Card>
+
+                    {/* MODULE 4: HIỆU QUẢ KINH TẾ */}
+                    <Card title="4. Kinh tế & Đổi mới" subtitle="Economic - Kinh doanh & Đầu tư tương lai" icon="trending-up" className="h-full flex flex-col">
+                        <div className="space-y-4 flex-1">
+                            <div className="flex items-center justify-between mb-2 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                                <div>
+                                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Tỷ lệ lấp đầy quy hoạch</p>
+                                    <div className="text-3xl font-extrabold text-slate-900 mt-1">85%</div>
+                                    <p className="text-[10px] text-brand-blue font-bold mt-1 bg-brand-lightblue px-2 py-0.5 rounded w-fit">Investment-ready (TB 15 năm ≥50%)</p>
+                                </div>
+                                <GaugeChart value={120} max={200} label="Năng suất (MVA/LĐ)" suffix="%" color="#FF9100" />
+                            </div>
+
+                            <div className="pt-2 border-t border-slate-100">
+                                <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-3">Thúc đẩy Kinh tế Địa phương (SMEs)</h4>
+                                <SimpleProgressBar label="Ngân sách BQL chi cho Local SMEs (<100km)" value={92} colorClass="bg-brand-green" suffix="% (Mục tiêu 90%)" />
+                                <SimpleProgressBar label="DN sử dụng dịch vụ/sản phẩm Local SMEs" value={35} colorClass="bg-indigo-500" suffix="% (Mục tiêu ≥25%)" />
+                                <div className="mt-2"><MetricRow icon="credit-card" label="Mức độ tiếp cận tín dụng của SMEs" value="Khả quan" highlight /></div>
+                            </div>
+
+                            <div className="pt-2 border-t border-slate-100 space-y-0.5">
+                                <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Đổi mới Sáng tạo & Việc làm</h4>
+                                <MetricRow icon="microscope" label="Chi tiêu R&D của Doanh nghiệp" value="4.5%" subValue="Trên tổng doanh thu" />
+                                <MetricRow icon="briefcase" label="Việc làm dài hạn (Ký HĐ trực tiếp)" value="42%" subValue="Mục tiêu ≥30%" highlight />
+                            </div>
+                        </div>
+                    </Card>
+                </div>
+            </div>
+        );
+
+        // 3. Tenant Portal & ESG Management
+        const TenantPortalView = () => (
+            <div className="space-y-6 animate-fade-in pb-10">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 mb-6">
+                    <div>
+                        <StatusBadge status="info" text="Cổng Giao tiếp Nội khu" icon="users" className="mb-2" />
+                        <h2 className="text-3xl font-extrabold text-slate-900">Tenant Portal</h2>
+                        <p className="text-slate-500 font-medium mt-1">Quản lý Dữ liệu Môi trường, OH&S, Tuân thủ và Dịch vụ Cơ sở vật chất.</p>
+                    </div>
+                    <div className="flex gap-2">
+                        <button className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-sm font-bold shadow-sm hover:bg-slate-800">
+                            <Icon name="upload-cloud" size={16} /> Nộp Báo Cáo Tháng
+                        </button>
+                    </div>
+                </div>
+
+                {/* --- ORIGINAL TENANT PORTAL CARDS --- */}
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                    {/* NHÓM 1: TÀI NGUYÊN & MÔI TRƯỜNG */}
+                    <Card title="1. Tài nguyên & Môi trường" subtitle="Resource & Circular Economy" icon="leaf" className="h-full flex flex-col">
+                        <div className="space-y-5 flex-1">
+                            <div>
+                                <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Tiêu thụ Năng lượng & Nước</h4>
+                                <MetricRow icon="refresh-cw" label="Đồng bộ Submetering (Điện, Nước, Khí)" value="Hoàn tất" highlight />
+                                <div className="bg-orange-50 p-3 rounded-xl border border-orange-100 mt-2 shadow-sm">
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-xs font-bold text-orange-700">Khai báo nhiên liệu tự đốt (Scope 1)</span>
+                                        <span className="text-[10px] font-extrabold bg-white px-2 py-1 rounded text-orange-600 shadow-sm border border-orange-200">Đã nộp</span>
+                                    </div>
+                                    <div className="text-xs text-orange-800/80 mt-1.5 font-medium flex gap-2">Dầu Diesel (Máy phát điện): <span className="font-bold">500 Lít</span></div>
+                                </div>
+                            </div>
+                            
+                            <div className="pt-3 border-t border-slate-100">
+                                <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2.5">Quản lý Rác thải & Phát thải (Tháng)</h4>
+                                <div className="grid grid-cols-3 gap-2 mb-3">
+                                    <div className="bg-slate-50 py-2.5 px-2 rounded-xl text-center border border-slate-100"><div className="text-lg font-extrabold text-slate-800 leading-none">12<span className="text-xs font-medium">T</span></div><div className="text-[9px] text-slate-500 uppercase font-bold mt-1">Sinh hoạt</div></div>
+                                    <div className="bg-slate-50 py-2.5 px-2 rounded-xl text-center border border-slate-100"><div className="text-lg font-extrabold text-slate-800 leading-none">45<span className="text-xs font-medium">T</span></div><div className="text-[9px] text-slate-500 uppercase font-bold mt-1">Công nghiệp</div></div>
+                                    <div className="bg-red-50 py-2.5 px-2 rounded-xl text-center border border-red-100"><div className="text-lg font-extrabold text-red-600 leading-none">0.5<span className="text-xs font-medium">T</span></div><div className="text-[9px] text-red-500 uppercase font-bold mt-1">Nguy hại</div></div>
+                                </div>
+                                <SimpleProgressBar label="Tỷ lệ rác được tái chế / xử lý an toàn" value={95} colorClass="bg-brand-green" />
+                            </div>
+                            
+                            <div className="pt-2 border-t border-slate-100 flex-1 flex flex-col justify-end">
+                                <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Cộng sinh Công nghiệp (DEEP C Connect Model)</h4>
+                                <div className="bg-slate-50 rounded-xl border border-slate-100 p-2 space-y-1.5">
+                                    <div className="flex justify-between items-center text-xs p-2 bg-white rounded-lg border border-slate-100 shadow-sm">
+                                        <span className="font-bold text-brand-blue flex items-center gap-1.5"><Icon name="arrow-up-right" size={14}/> Nguồn thặng dư</span>
+                                        <span className="text-slate-600 font-medium">Nước xả làm mát (100m³/ngày)</span>
+                                    </div>
+                                    <div className="flex justify-between items-center text-xs p-2 bg-white rounded-lg border border-slate-100 shadow-sm">
+                                        <span className="font-bold text-brand-orange flex items-center gap-1.5"><Icon name="arrow-down-left" size={14}/> Nhu cầu tìm kiếm</span>
+                                        <span className="text-slate-600 font-medium">Pallet gỗ cũ (5 Tấn/tháng)</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </Card>
+
+                    {/* NHÓM 2: SỨC KHỎE, AN TOÀN & XÃ HỘI */}
+                    <Card title="2. Sức khỏe, An toàn & Xã hội" subtitle="OH&S and Social Impact" icon="heart" className="h-full flex flex-col">
+                        <div className="space-y-4 flex-1">
+                            <div>
+                                <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">An toàn Lao động (OH&S)</h4>
+                                <div className="grid grid-cols-2 gap-3 mb-2">
+                                    <div className="bg-brand-lightgreen/30 p-3.5 rounded-xl border border-brand-green/20">
+                                        <div className="text-2xl font-extrabold text-brand-green">120k</div>
+                                        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-600 mt-1">Giờ làm việc an toàn</div>
+                                    </div>
+                                    <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-100">
+                                        <div className="text-2xl font-extrabold text-slate-800">0</div>
+                                        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mt-1">LTI / Bệnh nghề nghiệp</div>
+                                    </div>
+                                </div>
+                                <MetricRow icon="shield-alert" label="Sự cố tràn hóa chất / Cháy nổ" value="0 Sự cố" highlight />
+                            </div>
+
+                            <div className="pt-2 border-t border-slate-100">
+                                <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2.5">Lao động & Đa dạng hóa</h4>
+                                <div className="flex justify-between items-center text-xs mb-3 px-2 bg-slate-50 py-2 rounded-lg border border-slate-100">
+                                    <span className="text-slate-600 font-medium">Tổng lao động: <span className="font-bold text-slate-900 text-sm">1,200</span></span>
+                                    <span className="text-slate-600 font-medium">Khuyết tật: <span className="font-bold text-slate-900 text-sm">15</span></span>
+                                </div>
+                                <SimpleProgressBar label="Tỷ lệ Lao động Nữ" value={45} colorClass="bg-pink-500" />
+                                <SimpleProgressBar label="Tỷ lệ Cán bộ Quản lý là Nữ" value={30} colorClass="bg-purple-500" />
+                            </div>
+
+                            <div className="pt-2 border-t border-slate-100 space-y-1.5 flex-1 flex flex-col justify-end">
+                                <MetricRow icon="book-open" label="Đào tạo Kỹ năng Số (Ind 4.0) & An toàn" value="2,500 Giờ" subValue="Tích lũy" />
+                                <div className="bg-brand-lightblue/30 p-3 rounded-xl border border-brand-blue/20 mt-2">
+                                    <div className="flex justify-between items-center mb-1.5">
+                                        <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5"><Icon name="globe" size={14} className="text-brand-blue" /> Ngân sách Hoạt động CSR</span>
+                                        <span className="text-sm font-extrabold text-brand-blue">$50,000</span>
+                                    </div>
+                                    <p className="text-[10px] text-slate-500 font-medium leading-relaxed">Quyên góp quỹ giáo dục, trao học bổng hỗ trợ các trường lân cận KCN.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </Card>
+
+                    {/* NHÓM 3: QUẢN TRỊ & TUÂN THỦ */}
+                    <Card title="3. Quản trị & Tuân thủ" subtitle="Governance & Compliance Tracker" icon="file-check" className="h-full flex flex-col">
+                        <div className="space-y-4 flex-1">
+                            <div>
+                                <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Chuỗi cung ứng & Mua sắm nội địa</h4>
+                                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex items-center justify-between mb-3">
+                                    <div>
+                                        <div className="text-3xl font-extrabold text-slate-900 leading-none">35%</div>
+                                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mt-1.5">Ngân sách chi cho SMEs địa phương</p>
+                                    </div>
+                                    <GaugeChart value={35} max={100} label="Mục tiêu ≥25%" color="#FF9100" />
+                                </div>
+                                <MetricRow icon="flask-conical" label="Chi phí R&D / Đổi mới công nghệ" value="5%" subValue="Trên tổng doanh thu" highlight />
+                            </div>
+
+                            <div className="pt-3 border-t border-slate-100 flex-1 flex flex-col justify-end">
+                                <div className="flex justify-between items-end mb-3">
+                                    <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Hồ sơ Tuân thủ & Pháp lý</h4>
+                                    <button className="text-[10px] font-bold text-brand-blue hover:underline bg-brand-lightblue/50 px-2 py-1 rounded">Cập nhật hồ sơ</button>
+                                </div>
+                                <div className="space-y-2">
+                                    <div className="flex justify-between items-center p-3 bg-white rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                                        <span className="text-xs font-bold text-slate-700">ĐTM (Đánh giá Tác động Môi trường)</span>
+                                        <StatusBadge status="active" text="Hợp lệ" />
+                                    </div>
+                                    <div className="flex justify-between items-center p-3 bg-white rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                                        <span className="text-xs font-bold text-slate-700">Giấy phép PCCC & LĐ Nước ngoài</span>
+                                        <StatusBadge status="active" text="Hợp lệ" />
+                                    </div>
+                                    <div className="flex justify-between items-center p-3 bg-orange-50 rounded-xl border border-orange-100 shadow-sm relative overflow-hidden">
+                                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-brand-orange"></div>
+                                        <span className="text-xs font-bold text-orange-800 pl-1">Chứng nhận ISO 14001 / 50001</span>
+                                        <StatusBadge status="warning" text="Hết hạn: 15 Ngày" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </Card>
+
+                    {/* NHÓM 4: DỊCH VỤ HỖ TRỢ & CSKH */}
+                    <Card title="4. Dịch vụ Hỗ trợ (Facility Mgt)" subtitle="Grievance & Tenant Satisfaction" icon="headset" className="h-full flex flex-col">
+                        <div className="space-y-4 flex-1">
+                            <div className="flex items-center gap-4 bg-brand-lightgreen/20 p-4 rounded-2xl border border-brand-green/20 mb-2">
+                                <div className="flex-1">
+                                    <h4 className="text-xs font-bold text-brand-green uppercase tracking-wider mb-1">Khảo sát Định kỳ (Surveys)</h4>
+                                    <p className="text-[10px] text-slate-600 font-medium leading-relaxed">Chỉ số hài lòng đối với chất lượng dịch vụ, môi trường, an ninh của Ban quản lý.</p>
+                                </div>
+                                <div className="w-16 h-16 rounded-full bg-white border-4 border-brand-green flex items-center justify-center shadow-md">
+                                    <span className="text-xl font-extrabold text-brand-green">98%</span>
+                                </div>
+                            </div>
+
+                            <div className="pt-2 border-t border-slate-100">
+                                <div className="flex justify-between items-end mb-3">
+                                    <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">HT Quản lý Khiếu nại (Work Orders)</h4>
+                                    <span className="text-[10px] font-bold bg-slate-100 border border-slate-200 px-2 py-0.5 rounded text-slate-600">Tỉ lệ giải quyết: 100%</span>
+                                </div>
+                                <div className="space-y-2.5">
+                                    <div className="p-3 bg-white rounded-xl border border-slate-100 shadow-sm">
+                                        <div className="flex justify-between items-center mb-2">
+                                            <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 bg-red-100 text-red-600 rounded">Cấp bách</span>
+                                            <span className="text-[9px] text-slate-400 font-bold uppercase">Tiếp nhận: 2h trước</span>
+                                        </div>
+                                        <p className="text-xs font-bold text-slate-800">Sự cố mất nước / Rò rỉ ống xưởng B</p>
+                                        <p className="text-[10px] text-slate-500 mt-1.5 font-medium">Trạng thái: <span className="text-brand-orange font-bold">Đang xử lý (Đội bảo trì nội khu)</span></p>
+                                    </div>
+                                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 opacity-80">
+                                        <div className="flex justify-between items-center mb-2">
+                                            <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 bg-slate-200 text-slate-600 rounded">Bảo trì</span>
+                                            <span className="text-[9px] text-slate-400 font-bold uppercase">Thời gian GQ: 2 Ngày</span>
+                                        </div>
+                                        <p className="text-xs font-bold text-slate-600 line-through">Bảo dưỡng định kỳ hệ thống điện Zone 3</p>
+                                        <p className="text-[10px] text-brand-green font-bold mt-1.5">Hoàn tất & Đóng ticket</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="pt-3 border-t border-slate-100 flex-1 flex flex-col justify-end">
+                                <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2.5">Đăng ký Tiện ích dùng chung</h4>
+                                <div className="flex gap-2">
+                                    <button className="flex-1 bg-white border border-slate-200 py-2.5 rounded-xl text-[10px] font-extrabold text-slate-700 hover:bg-slate-50 hover:border-slate-300 shadow-sm transition-all text-center">Khám Sức Khỏe</button>
+                                    <button className="flex-1 bg-white border border-slate-200 py-2.5 rounded-xl text-[10px] font-extrabold text-slate-700 hover:bg-slate-50 hover:border-slate-300 shadow-sm transition-all text-center">Tuyển Dụng LĐ</button>
+                                    <button className="flex-1 bg-white border border-slate-200 py-2.5 rounded-xl text-[10px] font-extrabold text-slate-700 hover:bg-slate-50 hover:border-slate-300 shadow-sm transition-all text-center">Thuê Lưu Trú</button>
+                                </div>
+                            </div>
+                        </div>
+                    </Card>
+                </div>
+
+                {/* --- ESG & TENANT MANAGEMENT (EXTENDED MODULES) --- */}
+                <div className="pt-10 mt-10 border-t-2 border-slate-200/60 border-dashed">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 mb-6">
+                        <div>
+                            <StatusBadge status="info" text="Ban Giám Đốc & Nhà Đầu Tư" icon="bar-chart" className="mb-2" />
+                            <h2 className="text-2xl font-extrabold text-slate-900">ESG & Tenant Management Dashboard</h2>
+                            <p className="text-slate-500 font-medium mt-1">Phân hệ quản trị vĩ mô toàn khu công nghiệp (Macro Command Center).</p>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                         
+                         {/* MODULE 1: TỔNG QUAN VĨ MÔ */}
+                         <Card title="1. Tổng quan Vĩ mô" subtitle="Macro Command Center" icon="monitor" className="xl:col-span-2">
+                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                {/* ESG Score */}
+                                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex items-center justify-between">
+                                    <div>
+                                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Tín nhiệm ESG Tổng khu</p>
+                                        <div className="text-2xl font-extrabold text-slate-900 mt-1">GRESB 4-Star</div>
+                                        <p className="text-[10px] text-brand-green font-bold mt-1 bg-brand-lightgreen px-2 py-0.5 rounded w-fit">Hạng A (LEED/Lotus)</p>
+                                    </div>
+                                    <GaugeChart value={85} label="Overall ESG Score" color="#00C853" />
+                                </div>
+
+                                {/* Digital Twin Heatmap */}
+                                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col justify-center relative overflow-hidden group">
+                                    <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] group-hover:scale-105 transition-transform duration-700"></div>
+                                    <div className="relative z-10">
+                                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2.5">Bản đồ Heatmap (Digital Twin)</p>
+                                        <div className="flex justify-between items-center px-4 py-2 bg-white/80 rounded-xl shadow-sm border border-slate-100 backdrop-blur-sm">
+                                            <div className="flex flex-col items-center"><div className="w-3 h-3 rounded-full bg-brand-green mb-1 shadow-[0_0_8px_rgba(0,200,83,0.6)]"></div><span className="text-[10px] font-bold text-slate-700">45 Tốt</span></div>
+                                            <div className="flex flex-col items-center"><div className="w-3 h-3 rounded-full bg-brand-orange mb-1 shadow-[0_0_8px_rgba(255,145,0,0.6)]"></div><span className="text-[10px] font-bold text-slate-700">3 Cảnh báo</span></div>
+                                            <div className="flex flex-col items-center"><div className="w-3 h-3 rounded-full bg-red-500 mb-1 shadow-[0_0_8px_rgba(239,68,68,0.6)] pulse-dot"></div><span className="text-[10px] font-bold text-slate-700">0 Sự cố</span></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Revenue & Utility */}
+                                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col justify-between">
+                                    <div>
+                                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Total Revenue (Hạ tầng)</p>
+                                        <div className="text-2xl font-extrabold text-brand-blue">$2.5M <span className="text-xs text-slate-500 font-semibold">/tháng</span></div>
+                                    </div>
+                                    <div className="border-t border-slate-200 pt-2 mt-2">
+                                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Utility Usage (Tổng tải HT)</p>
+                                        <div className="text-lg font-extrabold text-slate-800">45 MW Điện <span className="text-slate-300 mx-1.5 font-normal">|</span> 120k m³ Nước</div>
+                                    </div>
+                                </div>
+                             </div>
+                         </Card>
+
+                         {/* MODULE 2: MÔI TRƯỜNG & NĂNG LƯỢNG */}
+                         <Card title="2. Môi trường & Năng lượng" subtitle="The 'E' in ESG - Net-Zero Tracking" icon="leaf" className="h-full flex flex-col">
+                             <div className="space-y-4 flex-1">
+                                 <div>
+                                     <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2.5">Quản lý Năng lượng & Carbon</h4>
+                                     <SimpleProgressBar label="Sản lượng điện tiêu thụ vs Hạn mức" value={78} colorClass="bg-brand-blue" />
+                                     <SimpleProgressBar label="Tỷ lệ NL tái tạo (Solar cấp cho Tenant)" value={35} colorClass="bg-brand-green" />
+                                     <div className="grid grid-cols-2 gap-3 mt-3">
+                                         <MetricRow label="Hệ số PUE (Trạm dữ liệu)" value="1.25" highlight />
+                                         <MetricRow label="Scope 1 & 2 GHG" value="35k tCO2e" />
+                                     </div>
+                                     <div className="mt-2.5 p-2 bg-brand-lightgreen/30 rounded-lg border border-brand-green/20 text-xs font-semibold text-brand-green">Tiến độ giảm phát thải: Vượt 5% so với lộ trình cam kết.</div>
+                                 </div>
+                                 <div className="pt-3 border-t border-slate-100 flex-1 flex flex-col justify-end">
+                                     <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2.5">Nước & Rác thải (Kinh tế tuần hoàn)</h4>
+                                     <div className="flex justify-between items-center text-xs font-bold mb-3 px-3 py-2 bg-slate-50 rounded-lg border border-slate-100">
+                                        <span className="text-slate-600">Nước sạch: <span className="text-slate-900 text-sm">15k m³</span></span> 
+                                        <span className="text-slate-600">Nước thải: <span className="text-slate-900 text-sm">12k m³</span></span>
+                                     </div>
+                                     <div className="grid grid-cols-4 gap-2 text-center text-[10px] font-bold mb-3">
+                                         <div className="bg-slate-50 py-1.5 rounded-lg border border-slate-100">BOD: <span className="text-brand-green">Đạt</span></div>
+                                         <div className="bg-slate-50 py-1.5 rounded-lg border border-slate-100">COD: <span className="text-brand-green">Đạt</span></div>
+                                         <div className="bg-slate-50 py-1.5 rounded-lg border border-slate-100">pH: <span className="text-slate-800">7.2</span></div>
+                                         <div className="bg-slate-50 py-1.5 rounded-lg border border-slate-100">TSS: <span className="text-brand-green">Đạt</span></div>
+                                     </div>
+                                     <MetricRow icon="recycle" label="Tỷ lệ phân loại & tái chế rác (CN/Nguy hại)" value="82%" highlight />
+                                 </div>
+                             </div>
+                         </Card>
+
+                         {/* MODULE 3: VẬN HÀNH & HẠ TẦNG */}
+                         <Card title="3. Vận hành Tenant & Hạ tầng" subtitle="Operations & Infrastructure Continuity" icon="settings" className="h-full flex flex-col">
+                            <div className="space-y-4 flex-1">
+                                <div>
+                                    <div className="flex justify-between items-center bg-brand-lightblue/20 p-4 rounded-xl border border-brand-blue/20 mb-4">
+                                        <div>
+                                            <div className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">Uptime & SLA Tracking</div>
+                                            <div className="text-xs font-medium text-slate-500 mt-0.5">Dịch vụ cung cấp: Điện, Nước, Internet</div>
+                                        </div>
+                                        <div className="text-3xl font-extrabold text-brand-blue">99.99%</div>
+                                    </div>
+                                    <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2.5">Predictive Maintenance (AI/IoT)</h4>
+                                    <div className="space-y-2.5">
+                                        <AlertBox type="warning" title="Cảnh báo Trạm biến áp T2" desc="Nhiệt độ tăng bất thường. Dự đoán rủi ro quá tải trong vòng 48h tới." />
+                                        <AlertBox type="error" title="Rò rỉ đường ống nước thải" desc="Cảm biến áp suất báo giảm tại Node A4. Yêu cầu kiểm tra ngay." />
+                                    </div>
+                                </div>
+                                <div className="pt-3 border-t border-slate-100 flex-1 flex flex-col justify-end">
+                                    <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Logistics & Giao thông Nội khu</h4>
+                                    <MetricRow icon="truck" label="Lưu lượng xe tải / Container ra vào" value="350 Xe/Ngày" highlight />
+                                    <div className="flex justify-between items-center p-3 mt-2 bg-slate-50 rounded-xl border border-slate-100">
+                                        <span className="text-xs font-semibold text-slate-600">Tình trạng bãi đỗ xe nội khu</span>
+                                        <span className="text-[10px] font-bold text-orange-600 bg-orange-100 px-2 py-1 rounded shadow-sm border border-orange-200">Cảnh báo ách tắc cổng Nam</span>
+                                    </div>
+                                </div>
+                            </div>
+                         </Card>
+
+                         {/* MODULE 4: XÃ HỘI & CON NGƯỜI */}
+                         <Card title="4. Quản lý Con người & Xã hội" subtitle="The 'S' in ESG - Phúc lợi & An toàn" icon="users" className="xl:col-span-2">
+                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                 <div>
+                                     <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2.5">EHS (Environment, Health, Safety)</h4>
+                                     <div className="bg-brand-lightgreen/30 border border-brand-green/20 p-3 rounded-xl mb-3 shadow-sm">
+                                         <MetricRow label="Số ngày không tai nạn (LTIFR: 0.0)" value="450 Ngày" highlight />
+                                     </div>
+                                     <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 space-y-1">
+                                          <MetricRow icon="activity" label="Báo cáo sự cố y tế / cháy nổ" value="0 Vụ" />
+                                          <MetricRow icon="alert-octagon" label="Vi phạm an toàn lao động" value="2 Trường hợp" subValue="Đã nhắc nhở" />
+                                     </div>
+                                 </div>
+                                 <div>
+                                     <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2.5">Nhân sự & Phúc lợi (Welfare)</h4>
+                                     <MetricRow icon="users" label="Tổng công nhân viên (chia 3 ca)" value="15,200 Người" highlight />
+                                     <MetricRow icon="arrow-left-right" label="Lưu lượng ra vào cổng" value="Điều phối ổn định" subValue="Không ùn tắc" />
+                                     <div className="mt-4 pt-4 border-t border-slate-100">
+                                         <SimpleProgressBar label="Tỷ lệ sử dụng tiện ích chung (NOXH, Y tế, Thể thao)" value={65} colorClass="bg-pink-500" />
+                                         <p className="text-[10px] text-slate-500 mt-2 leading-relaxed">Phản ánh mức độ chăm lo đời sống người lao động của các Tenant, đáp ứng tiêu chuẩn của các nhà đầu tư FDI.</p>
+                                     </div>
+                                 </div>
+                             </div>
+                         </Card>
+                    </div>
+                </div>
+            </div>
+        );
+
+        // 4. Digital Twin Map View
+        const DigitalTwinView = () => {
+            const [activeLayers, setActiveLayers] = React.useState({ power: true, water: false, traffic: true });
+            const [selectedTenant, setSelectedTenant] = React.useState(mockTenants[0]);
+
+            const toggleLayer = (layer) => {
+                setActiveLayers(prev => ({ ...prev, [layer]: !prev[layer] }));
+            };
+
+            const getStatusStyles = (status) => {
+                switch(status) {
+                    case 'normal': return 'bg-white shadow-[0_4px_20px_rgba(0,0,0,0.06)] hover:shadow-[0_8px_25px_rgba(0,200,83,0.25)] text-[#00C853]';
+                    case 'warning': return 'bg-white shadow-[0_4px_20px_rgba(0,0,0,0.06)] hover:shadow-[0_8px_25px_rgba(255,145,0,0.3)] text-[#FF9100]';
+                    case 'critical': return 'bg-white shadow-[0_4px_20px_rgba(239,68,68,0.2)] pulse-dot text-red-500';
+                    case 'empty': return 'bg-slate-50 shadow-sm border border-slate-100 text-slate-500';
+                    default: return 'bg-white shadow-md';
+                }
+            };
+
+            const getSelectionStyle = (status) => {
+                switch(status) {
+                    case 'normal': return 'shadow-[0_0_20px_rgba(0,200,83,0.4)] scale-[1.05] z-30 ring-2 ring-[#00C853] ring-offset-2 ring-offset-white';
+                    case 'warning': return 'shadow-[0_0_20px_rgba(255,145,0,0.4)] scale-[1.05] z-30 ring-2 ring-[#FF9100] ring-offset-2 ring-offset-white';
+                    case 'critical': return 'shadow-[0_0_25px_rgba(239,68,68,0.6)] scale-[1.05] z-30 ring-2 ring-red-500 ring-offset-2 ring-offset-white';
+                    case 'empty': return 'shadow-[0_0_15px_rgba(0,0,0,0.1)] scale-[1.05] z-30 ring-1 ring-slate-300 ring-offset-2 ring-offset-white';
+                    default: return 'shadow-[0_0_20px_rgba(0,0,0,0.1)] scale-[1.05] z-30';
+                }
+            };
+
+            return (
+                <div className="space-y-6 animate-fade-in pb-10 h-full flex flex-col">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 mb-2">
+                        <div>
+                            <StatusBadge status="active" text="Hệ thống Live" icon="radio" className="mb-2" />
+                            <h2 className="text-3xl font-extrabold text-slate-900">Digital Twin & Interactive Map</h2>
+                            <p className="text-slate-500 font-medium mt-1">Bản sao số thời gian thực - Trung tâm điều hành sống của Khu công nghiệp.</p>
+                        </div>
+                    </div>
+
+                    <div className="flex flex-col lg:flex-row gap-6 items-start">
+                        
+                        {/* LEFT: MAP AREA */}
+                        <div className={`flex-[2.5] rounded-3xl relative p-8 flex flex-col w-full bg-white border border-slate-200 shadow-[0_8px_30px_rgba(0,0,0,0.04)] ${activeLayers.traffic ? 'layer-traffic' : ''} ${activeLayers.power ? 'layer-power' : ''} ${activeLayers.water ? 'layer-water' : ''}`}>
+                            {/* Decorative Grid Lines */}
+                            <div className="absolute inset-0 z-0 pointer-events-none opacity-20">
+                                <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+                                    <defs>
+                                        <pattern id="radarGrid" width="60" height="60" patternUnits="userSpaceOnUse">
+                                            <path d="M 60 0 L 0 0 0 60" fill="none" stroke="#E2E8F0" strokeWidth="1"/>
+                                        </pattern>
+                                    </defs>
+                                    <rect width="100%" height="100%" fill="url(#radarGrid)" />
+                                </svg>
+                            </div>
+
+                            {/* Map Content */}
+                            <div className="relative z-10 flex-1 flex flex-col h-full">
+                                <div className="flex justify-between items-center mb-6 shrink-0">
+                                    <h3 className="text-slate-800 font-bold tracking-widest uppercase text-sm flex items-center gap-2">
+                                        <Icon name="map" size={16} className="text-brand-blue" /> Layout KCN Toàn cảnh
+                                    </h3>
+                                    <div className="flex gap-4 text-[10px] font-bold uppercase tracking-wider text-slate-600 bg-slate-50 p-2 rounded-lg border border-slate-200 backdrop-blur-sm">
+                                        <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-[#00C853] shadow-[0_0_5px_#00C853]"></div> Bình thường</div>
+                                        <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-[#FF9100] shadow-[0_0_5px_#FF9100]"></div> Cảnh báo</div>
+                                        <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-red-500 pulse-dot"></div> Sự cố</div>
+                                        <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 bg-slate-300 rounded-sm"></div> Đang XD/Trống</div>
+                                    </div>
+                                </div>
+
+                                {/* Dynamic Grid representing 30 plots */}
+                                <div className="w-full grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-4 dt-map-grid relative mb-6">
+                                    {/* Traffic Simulation Overlays */}
+                                    {activeLayers.traffic && (
+                                        <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
+                                            <div className="traffic-particle left-[16.5%] top-0"></div>
+                                            <div className="traffic-particle left-[33%] top-0" style={{ animationDelay: '1s' }}></div>
+                                            <div className="traffic-particle left-[50%] top-0" style={{ animationDelay: '2.5s' }}></div>
+                                            <div className="traffic-particle left-[66.5%] top-0" style={{ animationDelay: '0.5s' }}></div>
+                                            <div className="traffic-particle left-[83%] top-0" style={{ animationDelay: '1.8s' }}></div>
+                                        </div>
+                                    )}
+
+                                    {mockTenants.map(tenant => (
+                                        <div 
+                                            key={tenant.id} 
+                                            onClick={() => setSelectedTenant(tenant)}
+                                            className={`dt-plot cursor-pointer rounded-xl flex flex-col overflow-hidden min-h-[90px] ${getStatusStyles(tenant.status)} ${selectedTenant?.id === tenant.id ? getSelectionStyle(tenant.status) : ''}`}
+                                        >
+                                            {/* Image Area */}
+                                            <div className="relative h-16 w-full bg-slate-100 shrink-0">
+                                                {tenant.status !== 'empty' ? (
+                                                    <img src={tenant.image} className="absolute inset-0 w-full h-full object-cover" alt={tenant.name} />
+                                                ) : (
+                                                    <div className="absolute inset-0 flex items-center justify-center">
+                                                        <Icon name="building" size={16} className="text-slate-400" />
+                                                    </div>
+                                                )}
+                                                
+                                                <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-slate-900/80 backdrop-blur-sm text-[9px] font-extrabold text-white z-10 shadow-sm">
+                                                    {tenant.id}
+                                                </div>
+                                                
+                                                {/* Extra visuals inside plot if layer active */}
+                                                {activeLayers.power && tenant.status !== 'empty' && (
+                                                    <div className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-blue-400 shadow-[0_0_8px_#60A5FA] z-20"></div>
+                                                )}
+                                            </div>
+                                            
+                                            {/* Title Area (White Box) */}
+                                            <div className="bg-white p-1.5 flex items-center justify-center flex-1 min-h-[32px] relative z-10 border-t border-slate-100">
+                                                <span className="text-[9px] font-extrabold text-slate-800 leading-tight text-center line-clamp-2">
+                                                    {tenant.name}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* Core Utilities Row (3 Plants) */}
+                                <div className="mt-auto pt-6 border-t border-slate-200 shrink-0">
+                                    <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-4">Hạ tầng Trung tâm (Core Utilities)</h4>
+                                    <div className="grid grid-cols-3 gap-6">
+                                        {mockUtilities.map(utility => (
+                                            <div 
+                                                key={utility.id} 
+                                                onClick={() => setSelectedTenant(utility)}
+                                                className={`dt-plot cursor-pointer rounded-xl flex flex-col overflow-hidden min-h-[100px] ${getStatusStyles(utility.status)} ${selectedTenant?.id === utility.id ? getSelectionStyle(utility.status) : ''}`}
+                                            >
+                                                {/* Image Area */}
+                                                <div className="relative h-20 w-full bg-slate-100 shrink-0">
+                                                    <img src={utility.image} className="absolute inset-0 w-full h-full object-cover" alt={utility.name} />
+                                                    <div className="absolute top-2 left-2 p-1.5 rounded-lg bg-white/90 backdrop-blur-sm z-10 shadow-sm border border-slate-100">
+                                                        <Icon name={utility.icon} size={16} className={utility.status === 'warning' ? 'text-[#FF9100]' : 'text-brand-blue'} />
+                                                    </div>
+                                                    {/* Extra power visuals */}
+                                                    {activeLayers.power && (
+                                                        <div className="absolute top-2 right-2 w-2.5 h-2.5 rounded-full bg-blue-400 shadow-[0_0_8px_#60A5FA] z-20"></div>
+                                                    )}
+                                                </div>
+                                                
+                                                {/* Title Area (White Box) */}
+                                                <div className="bg-white p-2 flex items-center justify-center flex-1 relative z-10 border-t border-slate-100">
+                                                    <span className="text-xs font-extrabold text-slate-800 leading-tight text-center">
+                                                        {utility.name}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* RIGHT: CONTROL PANEL */}
+                        <div className="flex-[1] flex flex-col gap-6 sticky top-28 self-start">
+                            
+                            {/* Layers Control */}
+                            <Card title="Lớp Dữ Liệu (Data Layers)" icon="layers" className="shrink-0">
+                                <div className="space-y-3">
+                                    <label className="flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all hover:bg-slate-50 border-slate-200">
+                                        <div className="flex items-center gap-2">
+                                            <Icon name="zap" size={16} className={activeLayers.power ? 'text-brand-blue' : 'text-slate-400'} />
+                                            <span className="text-sm font-bold text-slate-700">Mạng lưới Điện năng</span>
+                                        </div>
+                                        <div className={`w-10 h-5 rounded-full relative transition-colors ${activeLayers.power ? 'bg-brand-blue' : 'bg-slate-300'}`}>
+                                            <div className={`w-4 h-4 bg-white rounded-full absolute top-0.5 transition-transform ${activeLayers.power ? 'translate-x-5' : 'translate-x-0.5'}`}></div>
+                                        </div>
+                                        <input type="checkbox" className="hidden" checked={activeLayers.power} onChange={() => toggleLayer('power')} />
+                                    </label>
+
+                                    <label className="flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all hover:bg-slate-50 border-slate-200">
+                                        <div className="flex items-center gap-2">
+                                            <Icon name="droplets" size={16} className={activeLayers.water ? 'text-cyan-500' : 'text-slate-400'} />
+                                            <span className="text-sm font-bold text-slate-700">Đường ống Nước thải</span>
+                                        </div>
+                                        <div className={`w-10 h-5 rounded-full relative transition-colors ${activeLayers.water ? 'bg-cyan-500' : 'bg-slate-300'}`}>
+                                            <div className={`w-4 h-4 bg-white rounded-full absolute top-0.5 transition-transform ${activeLayers.water ? 'translate-x-5' : 'translate-x-0.5'}`}></div>
+                                        </div>
+                                        <input type="checkbox" className="hidden" checked={activeLayers.water} onChange={() => toggleLayer('water')} />
+                                    </label>
+
+                                    <label className="flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all hover:bg-slate-50 border-slate-200">
+                                        <div className="flex items-center gap-2">
+                                            <Icon name="truck" size={16} className={activeLayers.traffic ? 'text-brand-orange' : 'text-slate-400'} />
+                                            <span className="text-sm font-bold text-slate-700">Lưu lượng Giao thông</span>
+                                        </div>
+                                        <div className={`w-10 h-5 rounded-full relative transition-colors ${activeLayers.traffic ? 'bg-brand-orange' : 'bg-slate-300'}`}>
+                                            <div className={`w-4 h-4 bg-white rounded-full absolute top-0.5 transition-transform ${activeLayers.traffic ? 'translate-x-5' : 'translate-x-0.5'}`}></div>
+                                        </div>
+                                        <input type="checkbox" className="hidden" checked={activeLayers.traffic} onChange={() => toggleLayer('traffic')} />
+                                    </label>
+                                </div>
+                            </Card>
+
+                            {/* Tenant/Utility Details */}
+                            <Card title="Chi tiết Phân khu" icon="target" className="flex-1">
+                                {selectedTenant ? (
+                                    <div className="space-y-4 animate-fade-in flex flex-col h-full overflow-y-auto">
+                                        <div className="flex items-start justify-between">
+                                            <div>
+                                                <h4 className="text-lg font-extrabold text-slate-900">{selectedTenant.name}</h4>
+                                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mt-1">
+                                                    {selectedTenant.type === 'Utility' ? 'Hạ tầng Trung tâm' : `Lô ${selectedTenant.id} \u2022 ${selectedTenant.type}`}
+                                                </p>
+                                            </div>
+                                            <StatusBadge 
+                                                status={selectedTenant.status === 'normal' ? 'active' : selectedTenant.status === 'warning' ? 'warning' : selectedTenant.status === 'critical' ? 'error' : 'neutral'} 
+                                                text={selectedTenant.status === 'normal' ? 'Tốt' : selectedTenant.status === 'warning' ? 'Cảnh báo' : selectedTenant.status === 'critical' ? 'Sự cố' : 'Trống'} 
+                                            />
+                                        </div>
+
+                                        {selectedTenant.alertMsg && (
+                                            <AlertBox type={selectedTenant.status === 'warning' ? 'warning' : 'error'} title="Phát hiện vấn đề" desc={selectedTenant.alertMsg} />
+                                        )}
+
+                                        {selectedTenant.status !== 'empty' ? (
+                                            <div className="space-y-3 mt-4 flex-1">
+                                                {/* Hiển thị Metric động cho Utility */}
+                                                {selectedTenant.type === 'Utility' && selectedTenant.metrics && selectedTenant.metrics.map((metric, idx) => (
+                                                    <div key={idx} className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex justify-between items-center">
+                                                        <span className="text-xs font-bold text-slate-600">{metric.label}</span>
+                                                        <span className="text-sm font-extrabold text-slate-900">{metric.value} <span className="text-[10px] text-slate-500 font-semibold">{metric.unit}</span></span>
+                                                    </div>
+                                                ))}
+
+                                                {/* Hiển thị Metric tĩnh cho Tenant bình thường */}
+                                                {selectedTenant.type !== 'Utility' && (
+                                                    <>
+                                                        <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex justify-between items-center">
+                                                            <span className="text-xs font-bold text-slate-600">Năng lượng (EUI)</span>
+                                                            <span className={`text-sm font-extrabold ${selectedTenant.eui > 130 ? 'text-red-500' : 'text-slate-900'}`}>{selectedTenant.eui} <span className="text-[10px] text-slate-500 font-semibold">kWh/m²</span></span>
+                                                        </div>
+                                                        <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex justify-between items-center">
+                                                            <span className="text-xs font-bold text-slate-600">Tiêu thụ nước</span>
+                                                            <span className="text-sm font-extrabold text-slate-900">{selectedTenant.water} <span className="text-[10px] text-slate-500 font-semibold">m³/tháng</span></span>
+                                                        </div>
+                                                        <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex justify-between items-center">
+                                                            <span className="text-xs font-bold text-slate-600">Nhân sự (Hiện tại)</span>
+                                                            <span className="text-sm font-extrabold text-slate-900">{selectedTenant.workers} <span className="text-[10px] text-slate-500 font-semibold">Người</span></span>
+                                                        </div>
+                                                    </>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <div className="flex-1 flex items-center justify-center text-sm font-bold text-slate-400 text-center p-6 border border-slate-200 border-solid rounded-xl bg-slate-50">
+                                                Lô đất hiện chưa có dữ liệu vận hành.
+                                            </div>
+                                        )}
+
+                                        <button className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-colors mt-auto shrink-0">
+                                            Xem Báo Cáo Đầy Đủ
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="flex-1 flex items-center justify-center text-sm font-bold text-slate-400 text-center">
+                                        Vui lòng chọn một nhà máy trên bản đồ để xem chi tiết.
+                                    </div>
+                                )}
+                            </Card>
+
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+
+        // Main App Component
+        const App = () => {
+            const [activeTab, setActiveTab] = React.useState('twin');
+
+            const renderContent = () => {
+                switch(activeTab) {
+                    case 'leed': return <LeedView />;
+                    case 'unido': return <UnidoView />;
+                    case 'tenant': return <TenantPortalView />;
+                    case 'twin': return <DigitalTwinView />;
+                    default: return <DigitalTwinView />;
+                }
+            };
+
+            const navItems = [
+                { id: 'twin', label: 'Digital Twin Map', icon: 'layers' },
+                { id: 'leed', label: 'LEED Dashboard', icon: 'bar-chart-2' },
+                { id: 'unido', label: 'UNIDO Matrix', icon: 'globe' },
+                { id: 'tenant', label: 'Tenant Portal', icon: 'layout-dashboard' }
+            ];
+
+            return (
+                <div className="min-h-screen flex relative z-10">
+                    {/* Floating Sidebar */}
+                    <div className="hidden md:block w-72 p-6 h-screen sticky top-0 shrink-0">
+                        <aside className="w-full h-full glass-panel-solid rounded-3xl flex flex-col shadow-xl overflow-hidden">
+                            <div className="p-8 border-b border-slate-100">
+                                <h1 className="text-2xl font-extrabold text-slate-900 flex items-center gap-2">
+                                    <div className="bg-slate-900 text-white p-1.5 rounded-lg">
+                                        <Icon name="hexagon" size={24} strokeWidth={2} /> 
+                                    </div>
+                                    Green<span className="text-brand-blue">OS</span>
+                                </h1>
+                            </div>
+                            
+                            <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
+                                <div className="text-xs font-extrabold text-slate-400 uppercase tracking-wider mb-4 px-4">Menu Chính</div>
+                                {navItems.map(item => (
+                                    <button
+                                        key={item.id}
+                                        onClick={() => setActiveTab(item.id)}
+                                        className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl transition-all duration-200 text-sm font-bold ${
+                                            activeTab === item.id 
+                                            ? 'bg-slate-900 text-white shadow-md transform scale-[1.02]' 
+                                            : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+                                        }`}
+                                    >
+                                        <Icon name={item.icon} size={20} strokeWidth={activeTab === item.id ? 2.5 : 2} />
+                                        {item.label}
+                                    </button>
+                                ))}
+                            </nav>
+
+                            <div className="p-6 m-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center gap-3 shrink-0">
+                                <div className="w-10 h-10 rounded-full bg-brand-blue flex items-center justify-center text-white font-bold shadow-md shrink-0">
+                                    AM
+                                </div>
+                                <div className="min-w-0">
+                                    <p className="text-sm font-bold text-slate-900 truncate">Admin Manager</p>
+                                    <p className="text-xs font-semibold text-slate-500 truncate">Ban Quản Lý</p>
+                                </div>
+                            </div>
+                        </aside>
+                    </div>
+
+                    {/* Main Content */}
+                    <main className="flex-1 flex flex-col min-h-screen min-w-0 overflow-hidden">
+                        {/* Header */}
+                        <header className="h-24 flex items-center justify-between px-6 md:px-10 sticky top-0 z-20 backdrop-blur-sm shrink-0">
+                            <div className="flex items-center gap-4 w-full md:w-auto">
+                                <button className="md:hidden p-2 bg-white rounded-xl shadow-sm text-slate-800 shrink-0">
+                                    <Icon name="menu" />
+                                </button>
+                                <div className="relative w-full md:w-80 hidden md:block">
+                                    <Icon name="search" className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
+                                    <input 
+                                        type="text" 
+                                        placeholder="Tìm kiếm báo cáo, chỉ số..." 
+                                        className="w-full glass-panel-solid border-none rounded-2xl pl-12 pr-4 py-3 text-sm font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-blue shadow-sm"
+                                    />
+                                </div>
+                            </div>
+                            
+                            <div className="flex items-center gap-4 shrink-0">
+                                <div className="hidden sm:flex items-center gap-2 px-4 py-2 bg-white rounded-full shadow-sm border border-slate-100">
+                                    <span className="relative flex h-2.5 w-2.5">
+                                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-green opacity-75"></span>
+                                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-brand-green"></span>
+                                    </span>
+                                    <span className="text-xs font-bold text-slate-600 uppercase tracking-wide">Live Data</span>
+                                </div>
+                                <button className="relative p-3 bg-white rounded-xl text-slate-600 hover:text-slate-900 shadow-sm border border-slate-100 transition-colors">
+                                    <Icon name="bell" size={20} />
+                                    <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 border-2 border-white rounded-full"></span>
+                                </button>
+                                <button className="p-3 bg-white rounded-xl text-slate-600 hover:text-slate-900 shadow-sm border border-slate-100 transition-colors">
+                                    <Icon name="settings" size={20} />
+                                </button>
+                            </div>
+                        </header>
+
+                        {/* Content Area */}
+                        <div className="px-6 md:px-10 pt-4 flex-1 max-w-7xl mx-auto w-full">
+                            {renderContent()}
+                        </div>
+                    </main>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
